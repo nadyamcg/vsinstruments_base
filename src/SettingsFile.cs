@@ -2,7 +2,7 @@
 using Newtonsoft.Json;
 using Vintagestory.API.Config;
 
-namespace vsinstruments_base.src
+namespace Instruments
 {
     public class SettingsFile<TSettings> where TSettings : new()
     {

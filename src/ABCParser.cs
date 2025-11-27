@@ -1,10 +1,14 @@
 ﻿using System;               // Array.Find()
 using System.Collections.Generic; // List
-using System.Diagnostics;  // Debug todo remove
-using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools; // vec3D
 using Vintagestory.API.Server;
+
+using Instruments.Blocks;
+using Instruments.Core;
+using Instruments.Network.Packets;
+using Instruments.Items;
+using Vintagestory.API.Common.Entities;
 
 /*
  * This file is for the server only.
@@ -12,7 +16,7 @@ using Vintagestory.API.Server;
  * When a band plays, multiple parsers will exist, each with the unique player ID.
  */
 
-namespace vsinstruments_base.src
+namespace Instruments
 {
     public enum Accidental
     {
@@ -149,14 +153,14 @@ namespace vsinstruments_base.src
                 if (chordBuffer.Count == 0)
                     return ExitStatus.finished;
             }
-            if (chordBuffer.Count == InstrumentModCommon.config.abcBufferSize && chordBuffer[^1].CheckShouldStop(currentTime + 1000))  // If the last note in the buffer finishes in the next second, that's too many notes in too short a time! We must DESTROY IT
+            if (chordBuffer.Count == InstrumentModSettings.Instance.abcBufferSize && chordBuffer[^1].CheckShouldStop(currentTime + 1000))  // If the last note in the buffer finishes in the next second, that's too many notes in too short a time! We must DESTROY IT
                 return ExitStatus.overload;
             return allOk;
         }
         private bool ParseFile()
         {
             int timeout = 32;
-            while (chordBuffer.Count < InstrumentModCommon.config.abcBufferSize && timeout > 0)
+            while (chordBuffer.Count < InstrumentModSettings.Instance.abcBufferSize && timeout > 0)
             {
                 timeout--;
                 if (charIndex >= file.Length || endOfFile)
@@ -424,19 +428,24 @@ namespace vsinstruments_base.src
                 }
                 chordBuffer.Add(nextChord);
 
+                Entity playerEntity = null;
                 if (isPlayer)
                 {
                     IPlayer player = Array.Find(serverAPI.World.AllOnlinePlayers, x => x.ClientId == playerID);
-                    if(player != null)
-                        position = new(player.Entity.Pos.X, player.Entity.Pos.Y, player.Entity.Pos.Z);
+                    if (player != null)
+                    {
+                        position = new Vec3d(player.Entity.Pos.X, player.Entity.Pos.Y, player.Entity.Pos.Z);
+                        playerEntity = player.Entity;
+					}
                 }
 
                 ABCUpdateFromServer packet = new();
                 packet.newChord = nextChord;
                 packet.positon = position;
                 packet.fromClientID = playerID;
-                packet.instrument = instrument;
-                IServerNetworkChannel ch = serverAPI.Network.GetChannel("abc");
+                InstrumentItem item = playerEntity is EntityPlayer entPly && entPly.ActiveHandItemSlot.Itemstack.Item is InstrumentItem inst ? inst : null;
+				packet.InstrumentTypeID = item != null ? item.InstrumentTypeID : -1;
+				IServerNetworkChannel ch = serverAPI.Network.GetChannel(Constants.Channel.Abc);
                 ch.BroadcastPacket(packet);
             }
             chordStartTime += nextChordDuration;
@@ -1059,12 +1068,23 @@ namespace vsinstruments_base.src
         {
             list = [];
         }
+
+        [Obsolete("Use Instance instead!")]
         public static ABCParsers GetInstance()
         {
             if (_instance != null)
                 return _instance;
             return _instance = new();
         }
+
+        public static ABCParsers Instance
+        {
+            get
+            {
+                return _instance != null ? _instance : _instance = new ABCParsers();
+            }
+        }
+
         public void SetAPI(ICoreServerAPI newApi)
         {
             api = newApi;
@@ -1096,7 +1116,7 @@ namespace vsinstruments_base.src
                     // TODO copied from in instrument. Make into a single function pls
                     ABCStopFromServer packet = new(); // todo copied from main, make a function
                     packet.fromClientID = abcp.playerID;
-                    IServerNetworkChannel ch = api.Network.GetChannel("abc");
+                    IServerNetworkChannel ch = api.Network.GetChannel(Constants.Channel.Abc);
                     ch.BroadcastPacket(packet);
 
                     if (!abcp.isPlayer)

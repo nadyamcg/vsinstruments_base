@@ -1,12 +1,13 @@
 {
     "type": "code",
     "modid": "vsinstrumentsbase",
-    "name": "VSinstruments Base",
+    "name": "VSInstruments Base",
     "authors": [
-        "Quacksol"
+        "Quacksol", 
+        "_ex0_"
     ],
     "description": "Base for the instruments mod",
-    "version": "2.0.6",
+    "version": "3.0.0",
     "dependencies": {
         "game": "1.21.5"
     }

@@ -1,18 +1,18 @@
 ﻿using System;
 using System.Collections.Generic; // List
-using System.Diagnostics;  // Debug todo remove
 using System.IO;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
+using Instruments.Network.Packets;
+using Instruments.Items;
+using Instruments.GUI;
 
-
-namespace vsinstruments_base.src
+namespace Instruments.Blocks
 {
     internal class MusicBlock : Block
     {
@@ -79,7 +79,7 @@ namespace vsinstruments_base.src
             base.Initialize(api);
             if (api.Side != EnumAppSide.Server)
                 return;
-            ID = MusicBlockManager.GetInstance().GetNewID();
+            ID = MusicBlockManager.Instance.GetNewID();
             OnSlotModified(0); // Parses the item in the inventory slot
         }
         public override void ToTreeAttributes(ITreeAttribute tree)
@@ -108,16 +108,16 @@ namespace vsinstruments_base.src
             base.OnBlockRemoved();
             if (Api.Side != EnumAppSide.Server)
                 return;
-            MusicBlockManager.GetInstance().RemoveID(ID);
+            MusicBlockManager.Instance.RemoveID(ID);
 
             if (isPlaying)
             {
-                ABCParser abcp = ABCParsers.GetInstance().FindByID(ID);
-                ABCStopFromServer packet = new(); // todo copied from main, make a function
+                ABCParser abcp = ABCParsers.Instance.FindByID(ID);
+                ABCStopFromServer packet = new ABCStopFromServer(); // todo copied from main, make a function
                 packet.fromClientID = ID;
-                IServerNetworkChannel ch = (Api as ICoreServerAPI).Network.GetChannel("abc");
+                IServerNetworkChannel ch = (Api as ICoreServerAPI).Network.GetChannel(Constants.Channel.Abc);
                 ch.BroadcastPacket(packet);
-                ABCParsers.GetInstance().Remove(Api as ICoreServerAPI, null, abcp);
+                ABCParsers.Instance.Remove(Api as ICoreServerAPI, null, abcp);
             }
         }
         public void OnUse(IPlayer byPlayer)
@@ -138,12 +138,12 @@ namespace vsinstruments_base.src
                             if (songData == "")  // If songData is still empty, then the song wasn't found (or one wasn't selected)
                                 return;
 
-                            ABCParsers.GetInstance().MakeNewParser(Api as ICoreServerAPI, byPlayer,
+                            ABCParsers.Instance.MakeNewParser(Api as ICoreServerAPI, byPlayer,
                                 songData, ID, blockName, bandName, Pos.ToVec3d() + new Vec3d(0.5, 0, 0.5), instrumentType);
                         }
                         else
                         {
-                            ABCParsers.GetInstance().MakeNewParser(Api as ICoreServerAPI, byPlayer,
+                            ABCParsers.Instance.MakeNewParser(Api as ICoreServerAPI, byPlayer,
                                 songData, ID, blockName, bandName, Pos.ToVec3d() + new Vec3d(0.5, 0, 0.5), instrumentType);
                         }
                     }
@@ -152,12 +152,12 @@ namespace vsinstruments_base.src
                 }
                 else
                 {
-                    ABCParser abcp = ABCParsers.GetInstance().FindByID(ID);
-                    ABCStopFromServer packet = new(); // todo copied from main, make a function
+                    ABCParser abcp = ABCParsers.Instance.FindByID(ID);
+                    ABCStopFromServer packet = new ABCStopFromServer(); // todo copied from main, make a function
                     packet.fromClientID = ID;
-                    IServerNetworkChannel ch = (Api as ICoreServerAPI).Network.GetChannel("abc");
+                    IServerNetworkChannel ch = (Api as ICoreServerAPI).Network.GetChannel(Constants.Channel.Abc);
                     ch.BroadcastPacket(packet);
-                    ABCParsers.GetInstance().Remove(Api as ICoreServerAPI, byPlayer, abcp);
+                    ABCParsers.Instance.Remove(Api as ICoreServerAPI, byPlayer, abcp);
                 }
                 isPlaying = !isPlaying;
             }
@@ -180,7 +180,7 @@ namespace vsinstruments_base.src
                 ((ICoreServerAPI)Api).Network.SendBlockEntityPacket(
                     (IServerPlayer)byPlayer,
                     bp,
-                    69,
+					Constants.Packet.MusicBlockOpenID,
                     data
                 );
                 byPlayer.InventoryManager.OpenInventory(inventory);
@@ -193,7 +193,7 @@ namespace vsinstruments_base.src
                 inventory.InvNetworkUtil.HandleClientPacket(fromPlayer, packetid, data);
             }
 
-            if (packetid == 1004) // Name change
+            if (packetid == Constants.Packet.NameChangeID) // Name change
             {
                 if (data != null)
                 {
@@ -212,7 +212,7 @@ namespace vsinstruments_base.src
                 }
             }
 
-            if (packetid == 1005) // Band change
+            if (packetid == Constants.Packet.BandChangeID) // Band change
             {
                 if (data != null)
                 {
@@ -231,7 +231,7 @@ namespace vsinstruments_base.src
                 }
             }
 
-            if (packetid == 1006) // Song select
+            if (packetid == Constants.Packet.SongSelectID) // Song select
             {
                 if (data != null)
                 {
@@ -256,7 +256,7 @@ namespace vsinstruments_base.src
             // The server saw a player tried to open the music box - it sent a packet, and here it is!
             // Open the gui.
             base.OnReceivedServerPacket(packetid, data);
-            if (packetid == 69)
+            if (packetid == Constants.Packet.MusicBlockOpenID)
             {
                 using (MemoryStream ms = new MemoryStream(data))
                 {
@@ -271,7 +271,7 @@ namespace vsinstruments_base.src
 
                     IClientWorldAccessor clientWorld = (IClientWorldAccessor)Api.World;
 
-                    if (!Definitions.GetInstance().UpdateSongList(Api as ICoreClientAPI))
+                    if (!Definitions.Instance.UpdateSongList(Api as ICoreClientAPI))
                         return;
 
                     if (musicBlockGUI == null)
@@ -311,12 +311,23 @@ namespace vsinstruments_base.src
         {
             activeBlockIDs = new List<int>();
         }
+
+        [Obsolete("Use Instance instead!")]
         public static MusicBlockManager GetInstance()
         {
             if (_instance != null)
                 return _instance;
             return _instance = new();
         }
+
+        public static MusicBlockManager Instance
+        {
+            get
+            {
+                return _instance != null ? _instance : _instance = new MusicBlockManager();
+            }
+        }
+
         public void Reset()
         {
             activeBlockIDs.Clear();

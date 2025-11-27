@@ -55,6 +55,19 @@
   <Content Include="assets\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   </Content>
+  <Compile Remove="extern\MidiParser\example\**" />
+  <Compile Remove="extern\Midi\MidiExamples\**" />
+  <Compile Remove="extern\Midi\MidiUnitTests\**" />
+  <Compile Remove="extern\Midi\Midi\docs\**" />
+  <EmbeddedResource Remove="extern\MidiParser\example\**" />
+  <EmbeddedResource Remove="extern\Midi\MidiExamples\**" />
+  <EmbeddedResource Remove="extern\Midi\MidiUnitTests\**" />
+  <EmbeddedResource Remove="extern\Midi\Midi\docs\**" />
+  <None Remove="extern\MidiParser\example\**" />
+  <None Remove="extern\Midi\MidiExamples\**" />
+  <None Remove="extern\Midi\MidiUnitTests\**" />
+  <None Remove="extern\Midi\Midi\docs\**" />
+  <None Remove="extern\Midi\Midi\Midi.ndoc" />
   <Content Include="modinfo.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   </Content>

@@ -4,7 +4,7 @@ using System.IO; // Open files
 using System.Text;
 
 
-namespace vsinstruments_base.src
+namespace Instruments
 {
     public class RecursiveFileProcessor
     {

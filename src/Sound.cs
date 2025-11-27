@@ -1,12 +1,15 @@
-﻿using ProtoBuf;
-using System; // Random
+﻿using System; // Random
 using System.Collections.Generic;
 using System.Diagnostics;  // Debug todo remove
+using ProtoBuf;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
+using Midi;
+using Instruments.Types;
 
-namespace vsinstruments_base.src
+namespace Instruments
 {
     public class Sound
     {
@@ -16,14 +19,20 @@ namespace vsinstruments_base.src
 
         public Sound(IClientWorldAccessor client, Vec3d pos, float pitchModifier, string assetLocation, int id, float volume, bool play = true)
         {
-            SoundParams soundData = new(new AssetLocation("instruments", assetLocation + ".ogg"));
+            // TODO@exocs: Since the Abc playback relies on 'z' (rest) note on "playing" an empty sound,
+            // this hack exists. Not nice. But necessary, the logic relies on this. If removed,
+            // the Abc playback gets broken. Ugh.
+            bool hack = string.IsNullOrEmpty(assetLocation);
+            SoundParams soundData = hack ? 
+                new SoundParams(new AssetLocation("sounds/arrow-impact.ogg"))
+                : new SoundParams(new AssetLocation("instruments", assetLocation));
             soundData.Volume = volume;
             sound = client.LoadSound(soundData);
             if (sound != null)
             {
                 UpdateSound(pos, pitchModifier);
                 ID = id;
-                if (play)
+                if (play && !hack)
                     sound.Start();
             }
             else
@@ -36,7 +45,12 @@ namespace vsinstruments_base.src
         public void StopSound()
         {
             if (sound.IsPlaying)
-                sound.FadeOutAndStop(0.5f);
+            { 
+                //sound.Dispose();
+	            // Since sound is a form of energy, abruptly stopping it feels very artifical
+	            // and wrong. Let it fade out in a reasonable time instead. TODO@exocs: Constant?
+	            sound.FadeOutAndStop(1.0f);
+            }
         }
         public void UpdatePosition(Vec3d position)
         {
@@ -62,30 +76,33 @@ namespace vsinstruments_base.src
         private readonly IClientWorldAccessor client;
         private float nowTime = 0;
         private bool active = true;         // The manager should do Update(). False when playback should stop.
-        private readonly string instrumentFileLocation;
-        private readonly float volume;
-        public readonly string instrument;
+        private string instrumentFileLocation;
+        //public string instrument;
+
 
         private readonly Dictionary<int, string> drumMap = [];
         private readonly Dictionary<int, string> octaveMap = [];
 
-        private readonly float[,] frequencies = new float[7, 3] {
-            {0.9441f, 1.0000f, 1.0595f },  // A
-            {1.0595f, 1.1223f, 1.1891f },  // B
-            {1.1223f, 1.1891f, 1.2600f },  // C
-            {1.2600f, 1.3350f, 1.4141f },  // D
-            {1.4141f, 1.4964f, 1.5873f },  // E
-            {1.4964f, 1.5873f, 1.6818f },  // F
-            {1.6818f, 1.7818f, 1.8877f },  // G
-        };
 
         const int drumSamples = 64;
 
-        public SoundManager(IClientWorldAccessor clientAcc, int sID, string location, string inst, float startTime)
+        private InstrumentType _instrumentType;
+
+        public InstrumentType InstrumentType 
+        { 
+            get
+            {
+                return _instrumentType;
+            } 
+        }
+
+		public SoundManager(IClientWorldAccessor clientAcc, int sID, InstrumentType instrumentType, float startTime)
         {
             client = clientAcc;
+            _instrumentType = instrumentType;
 
-            int i = 0;
+
+			int i = 0;
             octaveMap.Add(i++, "a0");
             octaveMap.Add(i++, "a1");
             octaveMap.Add(i++, "a2");
@@ -95,10 +112,10 @@ namespace vsinstruments_base.src
             octaveMap.Add(i++, "a6");
             octaveMap.Add(i++, "a7");
 
-            // Drum
-            // D1 lowest
-            // E6 highest
-            for (i = 0; i < drumSamples - 1; i++)
+			// Drum
+			// D1 lowest
+			// E6 highest
+			for (i = 0; i < drumSamples - 1; i++)
             {
                 int index = i + 26;
                 string s = index + "";
@@ -110,13 +127,13 @@ namespace vsinstruments_base.src
             soundsOngoing = [];
 
             sourceID = sID;
-            sourcePosition = new(0, 0, 0); // Not sure if necessary
-            instrumentFileLocation = location;
-            instrument = inst;
+            sourcePosition = new Vec3d(0, 0, 0); // Not sure if necessary
+            //instrumentFileLocation = location;
+            //instrument = inst;
             nowTime = startTime;
 
             // Music Blocks have an ID above 1000, to not clash with players. This is convinient, as I can use this to set the volume appropriately.
-            volume = sID >= 1000 ? InstrumentModCommon.config.blockVolume : InstrumentModCommon.config.playerVolume;
+            //volume = sID >= 1000 ? InstrumentModCommon.config.blockVolume : InstrumentModCommon.config.playerVolume;
         }
 
         public void AddChord(Vec3d pos, Chord chord)
@@ -130,6 +147,8 @@ namespace vsinstruments_base.src
             if (!active)
                 return false;
 
+            Entity playerEntity = null;
+            Items.InstrumentItem instrumentItem = null;
             // Check if the sounds have a player, so we can update their positions
             bool playerExists = false;
             {
@@ -138,7 +157,11 @@ namespace vsinstruments_base.src
                 {
                     sourcePosition = new(player.Entity.Pos.X, player.Entity.Pos.Y, player.Entity.Pos.Z);
                     playerExists = true;
-                }
+                    if (player.InventoryManager.ActiveHotbarSlot.Itemstack.Item is Items.InstrumentItem ii)
+                        instrumentItem = ii;
+
+                    playerEntity = player.Entity;
+				}
             }
 
             // Check if a chord in the buffer should play.
@@ -157,9 +180,10 @@ namespace vsinstruments_base.src
                         foreach (Note note in chordBuffer[i].notes)
                         {
                             bool play = true;
-                            string assetLocation;
-                            float pitch;
-                            if (instrument == "drum")
+                            string assetLocation = string.Empty;
+                            float pitch = 1.0f;
+                            // TODO@exocs: Handle drum in DrumItemType
+                            /*if (instrument == "drum")
                             {
                                 int index = KeyToIndex(note);
 
@@ -174,44 +198,22 @@ namespace vsinstruments_base.src
                             }
                             else
                             {
-                                pitch = KeyToPitch(note.key, note.accidental);
-                                if (pitch < 0)
-                                {
-                                    pitch = 1;  // Too scared to pass in <0 to Sound()
-                                    play = false;
-                                }
-                                assetLocation = instrumentFileLocation + "/" + octaveMap[note.octave];
-                                if (instrument == "mic" || instrument.StartsWith("zmic"))
-                                {
-                                    Random rnd = new();
-                                    int rNum = rnd.Next(0, 5); // A number between 0 and 4
-                                    switch (rNum)
-                                    {
-                                        case 0:
-                                            assetLocation += "ba";
-                                            break;
-                                        case 1:
-                                            assetLocation += "bo";
-                                            break;
-                                        case 2:
-                                            assetLocation += "da";
-                                            break;
-                                        case 3:
-                                            assetLocation += "do";
-                                            break;
-                                        case 4:
-                                            assetLocation += "la";
-                                            break;
-                                    }
-                                }
-                            }
-                            Sound newSound = new(client, sourcePosition, pitch, assetLocation, -1, volume, play);
-                            newSound.endTime = nowTime + note.duration;
-                            if (newSound.sound == null)
-                                Debug.WriteLine("Sound creation failed (abc)!");
-                            else
-                                soundsOngoing.Add(newSound);
-                        }
+								// mic is already implemented in MicItemType
+                            }*/
+
+                            // wa
+
+                            //Sound newSound = new Sound(client, sourcePosition, pitch, assetLocation, -1, volume, play);
+                            note.Convert(out _, out Pitch notePitch);
+                            Sound newSound = instrumentItem != null ? instrumentItem.Play(notePitch, playerEntity) : null; 
+                            // TODO: REMOVE THIS UGLY HACK!
+                            if (newSound == null) newSound = new Sound(client, playerEntity.Pos.XYZ, 1.0f, "", -1, 1.0f, false);
+							newSound.endTime = nowTime + note.duration;
+							if (newSound.sound == null)
+								Debug.WriteLine("Sound creation failed (abc)!");
+							else
+								soundsOngoing.Add(newSound);
+						}
                         chordBuffer.RemoveAt(i);
                         chordCount--;
                         i--;
@@ -255,46 +257,6 @@ namespace vsinstruments_base.src
             foreach (Sound s in soundsOngoing)
                 s.StopSound();
             soundsOngoing.Clear();
-        }
-        private float KeyToPitch(char key, Accidental acc)
-        {
-            float pitchMod;
-            int noteIndex;
-            int accMod = 1;
-
-            if (acc == Accidental.sharp || acc == Accidental.accSharp)
-                accMod = 2;
-            if (acc == Accidental.flat || acc == Accidental.accFlat)
-                accMod = 0;
-
-            switch (key)
-            {
-                case 'a':
-                case 'b':
-                case 'c':
-                case 'd':
-                case 'e':
-                case 'f':
-                case 'g':
-                    noteIndex = key - 'a';
-                    break;
-                case 'A':
-                case 'B':
-                case 'C':
-                case 'D':
-                case 'E':
-                case 'F':
-                case 'G':
-                    noteIndex = key - 'A';
-                    break;
-                default:
-                    // z means rest.
-                    return -1;
-            }
-
-            pitchMod = frequencies[noteIndex, accMod];
-
-            return pitchMod;
         }
         private int KeyToIndex(Note note)
         {
@@ -388,4 +350,48 @@ namespace vsinstruments_base.src
         public float duration;
         public Accidental accidental;
     }
+
+    [Obsolete("Compatibility layer that should be deleted prior to release!")]
+    public static class NoteCompabilityExtensions
+    {
+		[Obsolete("Compatibility layer that should be deleted prior to release!")]
+		public static bool Convert(this Note @in, out Midi.Note note, out Midi.Pitch pitch)
+        {
+            char letter = char.ToUpper(@in.key);
+			if (letter < 'A' || letter > 'G')
+            {
+                note = default;
+                pitch = default;
+                return false;
+            }
+
+			int getAccidental()
+			{
+				switch (@in.accidental)
+				{
+					case Accidental.natural:
+					case Accidental.accNatural:
+						return Midi.Note.Natural;
+
+					case Accidental.sharp:
+					case Accidental.accSharp:
+						return Midi.Note.Sharp;
+
+					case Accidental.flat:
+					case Accidental.accFlat:
+						return Midi.Note.Flat;
+
+					default:
+						throw new NotImplementedException();
+				}
+			}
+            int accidental = getAccidental();
+
+            note = new Midi.Note(letter, accidental);
+            pitch = note.PitchInOctave(@in.octave);
+
+			//pitch = (Pitch)((@in.octave + 1) * Constants.Note.OctaveLength) + note.PositionInOctave;
+			return true;
+		}
+	}
 }
