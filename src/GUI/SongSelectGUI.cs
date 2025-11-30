@@ -29,6 +29,7 @@ public class SongSelectGUI : GuiDialog
   private readonly InstrumentType _instrumentType;
   private int _activeTrack = -1;
   private readonly Action<string, string> _fileSelectionCallback;
+  private bool _initializationFailed = false;
 
   public override string ToggleKeyCombinationCode => null;
 
@@ -84,17 +85,21 @@ public class SongSelectGUI : GuiDialog
     Action<string, string> onFileSelect = null)
     : base(capi)
   {
+    ((ICoreAPI) capi).Logger.Notification("[SongSelectGUI] Constructor entered");
+    ((ICoreAPI) capi).Logger.Notification("[SongSelectGUI] About to call GetInstrumentMod()");
     InstrumentModClient instrumentMod = capi.GetInstrumentMod();
     if (instrumentMod == null)
     {
-      ((ICoreAPI) capi).Logger.Error("[SongSelectGUI] CRITICAL: InstrumentMod is null! Mod system not loaded properly.");
-      throw new InvalidOperationException("InstrumentMod not found! The mod system failed to initialize. Check logs for errors during mod startup.");
+      ((ICoreAPI) capi).Logger.Error("[SongSelectGUI] CRITICAL: InstrumentMod is null! Mod system not loaded properly. Cannot open GUI.");
+      _initializationFailed = true;
+      return;
     }
     ((ICoreAPI) capi).Logger.Debug("[SongSelectGUI] InstrumentMod found: " + ((object) instrumentMod).GetType().Name);
     if (instrumentMod.FileManager == null)
     {
-      ((ICoreAPI) capi).Logger.Error("[SongSelectGUI] CRITICAL: FileManager is null!");
-      throw new InvalidOperationException("FileManager not initialized!");
+      ((ICoreAPI) capi).Logger.Error("[SongSelectGUI] CRITICAL: FileManager is null! Cannot open GUI.");
+      _initializationFailed = true;
+      return;
     }
     this._fileTree = instrumentMod.FileManager.UserTree;
     this._fileSelectionCallback = onFileSelect;
@@ -142,6 +147,8 @@ public class SongSelectGUI : GuiDialog
 
   public virtual void OnGuiOpened()
   {
+    if (_initializationFailed)
+      return;
     base.OnGuiOpened();
     this.RefreshContent(refreshContent: true, refreshDetails: true);
     ((ICoreAPI) this.capi).Logger.Notification("[SongSelectGUI] GUI opened, refreshed file list");
@@ -149,6 +156,8 @@ public class SongSelectGUI : GuiDialog
 
   public virtual void OnGuiClosed()
   {
+    if (_initializationFailed)
+      return;
     if (this._previewMusicPlayer != null)
     {
       if (this._previewMusicPlayer.IsPlaying || this._previewMusicPlayer.IsFinished)
@@ -507,6 +516,8 @@ public class SongSelectGUI : GuiDialog
 
   public virtual void OnBeforeRenderFrame3D(float deltaTime)
   {
+    if (_initializationFailed)
+      return;
     if (this._previewMusicPlayer != null && this._previewMusicPlayer.IsPlaying)
     {
       this._previewMusicPlayer.Update(deltaTime);

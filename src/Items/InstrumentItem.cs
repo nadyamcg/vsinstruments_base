@@ -69,8 +69,23 @@ public class InstrumentItem : Item
       handling = EnumHandHandling.PreventDefault;
       if (this.api is ICoreClientAPI api)
       {
-        api.Logger.Notification("[InstrumentItem] Opening SongSelectGUI for " + (this.InstrumentType?.Name ?? "Unknown Instrument"));
-        new SongSelectGUI(api, this.InstrumentType, title: "Select MIDI File - " + (this.InstrumentType?.Name ?? "Instrument")).TryOpen();
+        api.Logger.Notification("[InstrumentItem] OnHeldInteractStart called - about to open GUI");
+        api.Logger.Notification("[InstrumentItem] InstrumentType: " + (this.InstrumentType?.Name ?? "NULL"));
+        api.Logger.Notification("[InstrumentItem] API type: " + api.GetType().Name);
+
+        try
+        {
+          api.Logger.Notification("[InstrumentItem] Creating SongSelectGUI instance...");
+          var gui = new SongSelectGUI(api, this.InstrumentType, title: "Select MIDI File - " + (this.InstrumentType?.Name ?? "Instrument"));
+          api.Logger.Notification("[InstrumentItem] SongSelectGUI created, calling TryOpen...");
+          gui.TryOpen();
+          api.Logger.Notification("[InstrumentItem] TryOpen completed");
+        }
+        catch (Exception ex)
+        {
+          api.Logger.Error("[InstrumentItem] Exception while opening GUI: " + ex.Message);
+          api.Logger.Error("[InstrumentItem] Stack trace: " + ex.StackTrace);
+        }
       }
     }
   }

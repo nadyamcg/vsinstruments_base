@@ -18,7 +18,7 @@ public static class InstrumentModExtensions
 
   public static InstrumentModClient GetInstrumentMod(this ICoreClientAPI clientAPI)
   {
-    return  clientAPI.GetInstrumentMod<InstrumentModClient>();
+    return ((ICoreAPI)clientAPI).GetInstrumentMod<InstrumentModClient>();
   }
 
   public static InstrumentModServer GetInstrumentMod(this ICoreServerAPI serverAPI)

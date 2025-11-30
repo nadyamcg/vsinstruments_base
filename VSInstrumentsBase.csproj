@@ -66,16 +66,14 @@
 </ItemGroup>
 
 <!-- copy managed DLL and remove native DLLs -->
-<Target Name="AfterBuild" AfterTargets="Build">
+<Target Name="CopyDryWetMidi" AfterTargets="Build">
   <ItemGroup>
     <DryWetMidiManaged Include="$(NuGetPackageRoot)melanchall.drywetmidi/8.0.2/lib/netstandard2.0/Melanchall.DryWetMidi.dll" />
   </ItemGroup>
   <Copy SourceFiles="@(DryWetMidiManaged)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
   <Message Text="Copied DryWetMidi managed DLL" Importance="high" />
-</Target>
 
-<!-- remove native DLLs to prevent "Bad IL format" errors -->
-<Target Name="RemoveNativeDlls" AfterTargets="CopyDryWetMidi">
+  <!-- immediately remove native DLLs to prevent "Bad IL format" errors -->
   <Delete Files="$(OutputPath)Melanchall_DryWetMidi_Native32.dll" />
   <Delete Files="$(OutputPath)Melanchall_DryWetMidi_Native64.dll" />
   <Delete Files="$(OutputPath)Melanchall_DryWetMidi_Native64.dylib" />
