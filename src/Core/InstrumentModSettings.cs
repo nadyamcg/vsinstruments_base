@@ -4,7 +4,6 @@ using System.IO;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 
-
 namespace VSInstrumentsBase.src.Core;
 
 public class InstrumentModSettings

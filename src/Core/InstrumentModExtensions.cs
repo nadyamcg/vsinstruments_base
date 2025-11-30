@@ -1,8 +1,6 @@
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Server;
-using VSInstrumentsBase.src.Core;
-using VSInstrumentsBase.src.Core;
 
 namespace VSInstrumentsBase.src.Core;
 
