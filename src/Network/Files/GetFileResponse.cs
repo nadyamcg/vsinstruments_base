@@ -1,14 +1,21 @@
-using ProtoBuf;
+﻿using ProtoBuf;
 using VSInstrumentsBase.src.Files;
 
-
-namespace VSInstrumentsBase.src.Network.Files;
-
-[ProtoContract]
-public class GetFileResponse
+namespace VSInstrumentsBase.src.Network.Files
 {
-  public ulong RequestId;
-  public int Size;
-  public CompressionMethod Compression;
-  public byte[] Data;
+	[ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
+	public class GetFileResponse
+	{
+		//     the unique identifier of this request.
+		public ulong RequestId;
+
+		//     uncompressed (original) size.
+		public int Size;
+
+		//     used compression size.
+		public CompressionMethod Compression;
+
+		//     actual file data.
+		public byte[] Data;
+	}
 }

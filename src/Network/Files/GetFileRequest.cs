@@ -1,11 +1,16 @@
-using ProtoBuf;
+﻿using ProtoBuf;
 
-
-namespace VSInstrumentsBase.src.Network.Files;
-
-[ProtoContract]
-public class GetFileRequest
+namespace VSInstrumentsBase.src.Network.Files
 {
-  public ulong RequestId;
-  public string File;
+
+	//     packet sent to request a file.
+	[ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
+	public class GetFileRequest
+	{
+		//     the unique identifier of the request.
+		public ulong RequestId;
+
+		//     file path relative to the user directory tree.
+		public string File;
+	}
 }

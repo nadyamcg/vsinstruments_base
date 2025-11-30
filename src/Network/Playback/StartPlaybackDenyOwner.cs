@@ -1,10 +1,16 @@
-using ProtoBuf;
+﻿using ProtoBuf;
 
-
-namespace VSInstrumentsBase.src.Network.Playback;
-
-[ProtoContract]
-public class StartPlaybackDenyOwner
+namespace VSInstrumentsBase.src.Network.Playback
 {
-  public DenyPlaybackReason Reason;
+	//
+	// Summary:
+	//     Response packet sent to the instigator (the requesting client) of the playback, when the playback gets denied.
+	[ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
+	public class StartPlaybackDenyOwner
+	{
+		//
+		// Summary:
+		//     The reason why the playback was denied.
+		public DenyPlaybackReason Reason;
+	}
 }

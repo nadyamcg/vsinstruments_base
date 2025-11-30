@@ -1,11 +1,20 @@
-using ProtoBuf;
+﻿using ProtoBuf;
 
-
-namespace VSInstrumentsBase.src.Network.Playback;
-
-[ProtoContract]
-public class StopPlaybackBroadcast
+namespace VSInstrumentsBase.src.Network.Playback
 {
-  public int ClientId;
-  public StopPlaybackReason Reason;
+	//
+	// Summary:
+	//     Response packet broadcast to all clients from the server to stop a playback.
+	[ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
+	public class StopPlaybackBroadcast
+	{
+		//
+		// Summary:
+		//     Id of the player of which the playback is about to stop.
+		public int ClientId;
+		//
+		// Summary:
+		//     Determines the reason for why the playback was stopped.
+		public StopPlaybackReason Reason;
+	}
 }

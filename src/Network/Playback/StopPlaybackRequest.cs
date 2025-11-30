@@ -1,9 +1,12 @@
-using ProtoBuf;
+﻿using ProtoBuf;
 
-
-namespace VSInstrumentsBase.src.Network.Playback;
-
-[ProtoContract]
-public class StopPlaybackRequest
+namespace VSInstrumentsBase.src.Network.Playback
 {
+	//
+	// Summary:
+	//     Request packet sent to the server from clients to stop a playback.
+	[ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
+	public class StopPlaybackRequest
+	{
+	}
 }
