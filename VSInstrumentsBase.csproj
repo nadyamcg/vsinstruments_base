@@ -62,12 +62,6 @@
 </ItemGroup>
 
 <ItemGroup>
-  <Compile Remove="decomp3/**" />
-  <EmbeddedResource Remove="decomp3/**" />
-  <None Remove="decomp3/**" />
-</ItemGroup>
-
-<ItemGroup>
   <PackageReference Include="Melanchall.DryWetMidi" Version="8.0.2" PrivateAssets="all" />
 </ItemGroup>
 
