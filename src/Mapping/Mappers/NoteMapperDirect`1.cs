@@ -1,21 +1,15 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Mapping.Mappers.NoteMapperDirect`1
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.Midi;
 using System;
 
-#nullable enable
+
 namespace VSInstrumentsBase.src.Mapping.Mappers;
 
 public sealed class NoteMapperDirect<T> : NoteMappingBase<
-#nullable disable
+
 T>.NoteMapperBase
 {
   private readonly 
-  #nullable enable
+  
   T?[] values;
 
   public NoteMapperDirect() => this.values = new T[(int) sbyte.MaxValue];

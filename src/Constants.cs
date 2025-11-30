@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Constants
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using System.Runtime.InteropServices;
 
 namespace VSInstrumentsBase.src;
@@ -19,7 +13,7 @@ public static class Constants
   [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Note
   {
-    public const int NoteCount = 127 /*0x7F*/;
+    public const int NoteCount = 127 ;
     public const int OctaveLength = 12;
     public const int OctaveCount = 10;
   }
@@ -53,14 +47,14 @@ public static class Constants
   public struct Midi
   {
     public const byte VelocityMin = 0;
-    public const byte VelocityMax = 127 /*0x7F*/;
+    public const byte VelocityMax = 127 ;
 
     public static float NormalizeVelocity(byte velocity)
     {
       if (velocity < (byte) 0)
         velocity = (byte) 0;
-      else if (velocity > (byte) 127 /*0x7F*/)
-        velocity = (byte) 127 /*0x7F*/;
+      else if (velocity > (byte) 127 )
+        velocity = (byte) 127 ;
       return (float) velocity / (float) sbyte.MaxValue;
     }
   }

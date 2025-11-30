@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Players.MidiPlayerBase
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src;
 using VSInstrumentsBase.src.Types;
 using Melanchall.DryWetMidi.Common;
@@ -17,7 +11,7 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Players;
 
 public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType) : IDisposable

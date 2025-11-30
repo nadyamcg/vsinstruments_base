@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Players.MidiPlayer
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src;
 using VSInstrumentsBase.src.Types;
 using VSInstrumentsBase.src.Midi;
@@ -13,7 +7,7 @@ using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Players;
 
 public class MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentType) : 

@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Types.InstrumentType
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src;
 using VSInstrumentsBase.src.Mapping;
 using VSInstrumentsBase.src.Midi;
@@ -13,7 +7,7 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Types;
 
 public abstract class InstrumentType(string name, string animation)
@@ -76,13 +70,13 @@ public abstract class InstrumentType(string name, string animation)
     };
     if (this.Api is ICoreClientAPI api)
     {
-      this._toolModes[3].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/3.svg"), 48 /*0x30*/, 48 /*0x30*/, 5, new int?(-1)));
+      this._toolModes[3].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/3.svg"), 48 , 48 , 5, new int?(-1)));
       this._toolModes[3].TexturePremultipliedAlpha = false;
-      this._toolModes[2].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/3.svg"), 48 /*0x30*/, 48 /*0x30*/, 5, new int?(-1)));
+      this._toolModes[2].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/3.svg"), 48 , 48 , 5, new int?(-1)));
       this._toolModes[2].TexturePremultipliedAlpha = false;
-      this._toolModes[1].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/2.svg"), 48 /*0x30*/, 48 /*0x30*/, 5, new int?(-1)));
+      this._toolModes[1].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/2.svg"), 48 , 48 , 5, new int?(-1)));
       this._toolModes[1].TexturePremultipliedAlpha = false;
-      this._toolModes[0].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/1.svg"), 48 /*0x30*/, 48 /*0x30*/, 5, new int?(-1)));
+      this._toolModes[0].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/1.svg"), 48 , 48 , 5, new int?(-1)));
       this._toolModes[0].TexturePremultipliedAlpha = false;
     }
     this._noteMap = (NoteMapping<string>) new NoteMappingLegacy("sounds/" + this.Name);

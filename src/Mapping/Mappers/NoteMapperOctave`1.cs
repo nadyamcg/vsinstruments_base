@@ -1,21 +1,15 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Mapping.Mappers.NoteMapperOctave`1
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.Midi;
 using System;
 
-#nullable enable
+
 namespace VSInstrumentsBase.src.Mapping.Mappers;
 
 public sealed class NoteMapperOctave<T> : NoteMappingBase<
-#nullable disable
+
 T>.NoteMapperBase
 {
   private readonly 
-  #nullable enable
+  
   T?[] _values;
   private readonly Pitch _pitch;
 

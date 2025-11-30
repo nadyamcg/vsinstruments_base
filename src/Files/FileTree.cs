@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Files.FileTree
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.GUI;
 using System;
 using System.Collections.Concurrent;
@@ -15,26 +9,25 @@ using Vintagestory.API.Client;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 
-#nullable enable
 namespace VSInstrumentsBase.src.Files;
 
 public class FileTree : IDisposable
 {
   private readonly 
-  #nullable disable
+  
   FileTree.RootNode _rootNode;
   private FileSystemWatcher _watcher;
   private readonly string _searchPattern = "*";
   protected ConcurrentQueue<FileTree.IQueuedEvent> _eventQueue = new ConcurrentQueue<FileTree.IQueuedEvent>();
   public 
-  #nullable enable
+  
   FileTree.NodeChange? NodeCreated;
   public FileTree.NodeChange? NodeChanged;
   public FileTree.NodeRename? NodeRenamed;
   public FileTree.NodeChange? NodeDeleted;
 
   private void BuildBranches(
-  #nullable disable
+  
   FileTree.Node node)
   {
     if (!node.IsDirectory)
@@ -331,7 +324,7 @@ public class FileTree : IDisposable
 
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
     public 
-    #nullable enable
+    
     object? Context { get; set; } = (object) null;
 
     public int Depth
@@ -348,7 +341,7 @@ public class FileTree : IDisposable
     public virtual bool IsRoot => false;
 
     public Node(
-    #nullable disable
+    
     string fullPath)
     {
       this.Name = Path.GetFileName(fullPath);

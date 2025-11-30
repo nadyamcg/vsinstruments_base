@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Core.InstrumentModBase
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.Files;
 using VSInstrumentsBase.src.Items;
 using VSInstrumentsBase.src.Playback;
@@ -11,7 +5,7 @@ using VSInstrumentsBase.src.Types;
 using Vintagestory.API.Common;
 using VSInstrumentsBase.src.Blocks;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Core;
 
 public abstract class InstrumentModBase : ModSystem

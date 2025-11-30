@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Items.InstrumentItem
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.GUI;
 using VSInstrumentsBase.src.Types;
 using System;
@@ -13,7 +7,7 @@ using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Util;
 using vsinstruments_base.src;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Items;
 
 public class InstrumentItem : Item

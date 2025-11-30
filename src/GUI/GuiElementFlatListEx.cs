@@ -1,10 +1,4 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.GUI.GuiElementFlatListEx
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
-using VSInstrumentsBase.src.Files;
+﻿using VSInstrumentsBase.src.Files;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,7 +7,7 @@ using Vintagestory.API.Client;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.GUI;
 
 internal class GuiElementFlatListEx : GuiElementFlatList
@@ -142,8 +136,8 @@ internal class GuiElementFlatListEx : GuiElementFlatList
     }
     else
     {
-      num1 = 16 /*0x10*/;
-      num2 = 16 /*0x10*/;
+      num1 = 16 ;
+      num2 = 16 ;
     }
     return new Vec4f((float) ((GuiElement) this).Bounds.absX + (float) (depth * num1), posY + 0.25f * (float) num2, (float) num1, (float) num2);
   }

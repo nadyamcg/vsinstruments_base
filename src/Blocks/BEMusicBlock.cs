@@ -13,7 +13,7 @@ using VSInstrumentsBase.src.Network.Packets;
 using VSInstrumentsBase.src.Network.Playback;
 using VSInstrumentsBase.src.Types;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Blocks;
 
 internal class BEMusicBlock : BlockEntityContainer

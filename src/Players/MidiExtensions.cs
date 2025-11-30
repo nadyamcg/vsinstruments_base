@@ -1,15 +1,9 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Players.MidiExtensions
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using Melanchall.DryWetMidi.Core;
 using Melanchall.DryWetMidi.Interaction;
 using System;
 using System.Linq;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Players;
 
 public static class MidiExtensions
@@ -71,7 +65,7 @@ public static class MidiExtensions
 
   public static string GetInstrumentName(byte programNumber)
   {
-    string[] strArray = new string[128 /*0x80*/]
+    string[] strArray = new string[128 ]
     {
       "Acoustic Grand Piano",
       "Bright Acoustic Piano",

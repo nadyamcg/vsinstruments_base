@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.GUI.MusicBlockGUI
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.Items;
 using VSInstrumentsBase.src.Types;
 using System;
@@ -15,7 +9,7 @@ using Vintagestory.API.MathTools;
 using VSInstrumentsBase.src.GUI;
 
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.GUI;
 
 public class MusicBlockGUI : GuiDialogBlockEntity
@@ -65,7 +59,6 @@ public class MusicBlockGUI : GuiDialogBlockEntity
     });
     ElementBounds elementBounds12 = ElementStdBounds.AutosizedMainDialog.WithAlignment((EnumDialogArea) 10).WithFixedAlignmentOffset(-GuiStyle.DialogToScreenPadding, 0.0);
         ClearComposers();
-        // ISSUE: method pointer
         SingleComposer = capi.Gui.CreateCompo("blockentitymusicblock" + BlockEntityPosition?.ToString(), elementBounds12).AddShadedDialogBG(elementBounds11, true, 5.0, 0.75f).AddDialogTitleBar(DialogTitle, new Action(OnTitleBarClose),  null,  null,  null).BeginChildElements(elementBounds11).AddDynamicText(Lang.Get($"Name: \"{name}\"", Array.Empty<object>()), CairoFont.WhiteSmallText(), elementBounds2, nameof (name)).AddTextInput(elementBounds3, new Action<string>(OnNameChange),  null,  null).AddDynamicText(Lang.Get($"Band Name: \"{bandName}\"", Array.Empty<object>()), CairoFont.WhiteSmallText(), elementBounds4, nameof (bandName)).AddTextInput(elementBounds5, new Action<string>(OnBandNameChange),  null,  null).AddItemSlotGrid(Inventory, new Action<object>(SendInvPacket), 1, new int[1], elementBounds7,  null).AddStaticText(Lang.Get("Instrument", Array.Empty<object>()), CairoFont.WhiteSmallText(), elementBounds6,  null).AddDynamicText(Lang.Get($"Song File: \n\"{songName}\"", Array.Empty<object>()), CairoFont.WhiteSmallText(), elementBounds8, nameof (songName)).AddSmallButton(Lang.Get("Song Select", Array.Empty<object>()), () => OnSongSelect(), elementBounds10, (EnumButtonStyle) 2, "songSelectButton").EndChildElements().Compose(true);
     if (itemSlot == null)
       return;

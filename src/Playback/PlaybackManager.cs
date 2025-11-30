@@ -1,15 +1,9 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Playback.PlaybackManager
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using System.Collections.Generic;
 using System.Diagnostics;
 using Vintagestory.API.Common;
 using VSInstrumentsBase.src.Files;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Playback;
 
 public abstract class PlaybackManager
@@ -19,7 +13,7 @@ public abstract class PlaybackManager
   }
 
   [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
-  protected Dictionary<int, PlaybackManager.PlaybackStateBase> PlaybackStates { get; private set; } = new Dictionary<int, PlaybackManager.PlaybackStateBase>(64 /*0x40*/);
+  protected Dictionary<int, PlaybackManager.PlaybackStateBase> PlaybackStates { get; private set; } = new Dictionary<int, PlaybackManager.PlaybackStateBase>(64 );
 
   protected void AddPlaybackState<T>(T playbackInfo) where T : PlaybackManager.PlaybackStateBase
   {
