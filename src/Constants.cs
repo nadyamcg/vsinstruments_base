@@ -5,21 +5,18 @@ namespace VSInstrumentsBase.src;
 
 public static class Constants
 {
-  [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Math
   {
-    public const float PI = 3.14159274f;
+    public const float PI = MathF.PI;
   }
 
-  [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Note
   {
-    public const int NoteCount = 127 ;
-    public const int OctaveLength = 12;
-    public const int OctaveCount = 10;
+    public const int NoteCount = (int)Pitch.G9;
+    public const int OctaveLength = (int)Pitch.C0 - (int)Pitch.CNeg1;
+    public const int OctaveCount = NoteCount / OctaveLength;
   }
 
-  [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Packet
   {
     public const int NameChangeID = 1004;
@@ -28,7 +25,6 @@ public static class Constants
     public const int MusicBlockOpenID = 69;
   }
 
-  [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Channel
   {
     public const string Note = "noteTest";
@@ -38,49 +34,44 @@ public static class Constants
     public const string MusicBlock = "instrumentsMusicBlock";
   }
 
-  [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Attributes
   {
     public const string ToolMode = "toolMode";
   }
 
-  [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Midi
   {
     public const byte VelocityMin = 0;
-    public const byte VelocityMax = 127 ;
+    public const byte VelocityMax = 127;
 
     public static float NormalizeVelocity(byte velocity)
     {
-      if (velocity < (byte) 0)
-        velocity = (byte) 0;
-      else if (velocity > (byte) 127 )
-        velocity = (byte) 127 ;
-      return (float) velocity / (float) sbyte.MaxValue;
+      if (velocity < VelocityMin) velocity = VelocityMin;
+      else if (velocity > VelocityMax) velocity = VelocityMax;
+
+      return velocity / (float)VelocityMax;
     }
   }
 
-  [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Playback
   {
-    public const float FadeOutDuration = 1f;
+    public const float FadeOutDuration = 1.00f;
     public const float MinFadeOutDuration = 0.25f;
     public const float MinVelocityVolume = 0.25f;
-    public const float MaxVelocityVolume = 1f;
-    public const int ManagerTickInterval = 33;
+    public const float MaxVelocityVolume = 1.0f;
+    public const int ManagerTickInterval = (int)((1.0 / 30.0) * 1000.0);
 
     public static float GetVolumeFromVelocity(float velocity01)
     {
-      return float.Lerp(0.25f, 1f, velocity01);
+      return Single.Lerp(MinVelocityVolume, MaxVelocityVolume, velocity01);
     }
 
     public static float GetFadeDurationFromVelocity(float velocity01)
     {
-      return float.Lerp(1f, 0.25f, velocity01);
+      return Single.Lerp(FadeOutDuration, MinFadeOutDuration, velocity01);
     }
   }
 
-  [StructLayout(LayoutKind.Sequential, Size = 1)]
   public struct Files
   {
     public const int ManagerTickInterval = 10;

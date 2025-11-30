@@ -42,7 +42,7 @@ public class InstrumentModServer : InstrumentModBase
     }
     else
     {
-      StartPlaybackRequest startPlaybackRequest = new StartPlaybackRequest()
+      StartPlaybackRequest startPlaybackRequest = new()
       {
         File = packet.SongPath,
         Channel = packet.Channel,

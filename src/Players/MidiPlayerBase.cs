@@ -17,19 +17,25 @@ namespace VSInstrumentsBase.src.Players;
 public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType) : IDisposable
 {
   private TrackChunk _midiTrack;
+
   private int _beatsPerMinute;
+
   private int _ticksPerQuarterNote;
+
   private int _ticksDuration;
+
   private double _elapsedTime;
+
   private double _duration;
+
   private int _eventIndex;
+
   private TempoMap _tempoMap;
+
   private int _channel;
 
-  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
   protected ICoreAPI CoreAPI { get; private set; } = api;
 
-  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
   protected InstrumentType InstrumentType { get; private set; } = instrumentType;
 
   public double Duration => this._duration;
@@ -60,43 +66,62 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
   {
     if (this.IsPlaying)
       throw new InvalidOperationException("Cannot start MIDI playback, the player is already playing!");
-    TrackChunk[] trackChunkArray = midi != null ? Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>() : throw new InvalidOperationException("Cannot start MIDI playback, the provided file is invalid!");
+
+    if (midi == null)
+      throw new InvalidOperationException("Cannot start MIDI playback, the provided file is invalid!");
+
+    TrackChunk[] trackChunkArray = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>();
     if (channel >= trackChunkArray.Length)
       throw new ArgumentOutOfRangeException(nameof (channel), "Track index out of range");
+
     this.CoreAPI.Logger.Notification($"[MidiPlayerBase] Starting playback: {trackChunkArray.Length} tracks, channel {channel}, instrument {this.InstrumentType?.Name ?? "unknown"}");
+
     this._midiTrack = trackChunkArray[channel];
     this._tempoMap = TempoMapManagingUtilities.GetTempoMap(midi);
+
     this._beatsPerMinute = midi.ReadBPM();
     this._ticksPerQuarterNote = midi.TimeDivision is TicksPerQuarterNoteTimeDivision timeDivision ? (int) timeDivision.TicksPerQuarterNote : 480;
+
     this._elapsedTime = 0.0;
     this._ticksDuration = (int) MidiPlayerBase.GetDuration(this._midiTrack);
     this._duration = this.TicksToTime((long) this._ticksDuration);
+
     this._channel = channel;
     this._eventIndex = 0;
   }
 
   public void Play(string midiFilePath, int channel)
   {
-    this.Play(MidiFile.Read(midiFilePath, (ReadingSettings) null), channel);
+    MidiFile midiFile = MidiFile.Read(midiFilePath, (ReadingSettings) null);
+    this.Play(midiFile, channel);
   }
 
   public void Update(float deltaTime)
   {
     if (!this.IsPlaying)
       throw new InvalidOperationException("Player is not playing!");
+
     this._elapsedTime += (double) deltaTime;
-    long ticks = this.TimeToTicks(this._elapsedTime);
-    if (ticks > (long) this._ticksDuration)
+    long elapsedTicks = this.TimeToTicks(this._elapsedTime);
+
+    // clamp to bounds, playback is complete.
+    if (elapsedTicks > (long) this._ticksDuration)
       this._elapsedTime = this._duration;
-    for (TimedEvent[] array = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray<TimedEvent>(); this._eventIndex < array.Length; ++this._eventIndex)
+
+    // process all MIDI events that should occur at this time
+    TimedEvent[] array = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray<TimedEvent>();
+    for (; this._eventIndex < array.Length; ++this._eventIndex)
     {
       TimedEvent timedEvent = array[this._eventIndex];
-      if (timedEvent.Time <= ticks)
+      if (timedEvent.Time <= elapsedTicks)
         this.ProcessMidiEvent(timedEvent.Event);
       else
         break;
     }
-    this.SetPosition(this.GetSourcePosition());
+
+    // grab new source position and update all sounds
+    Vec3f sourcePosition = this.GetSourcePosition();
+    this.SetPosition(sourcePosition);
   }
 
   private void ProcessMidiEvent(MidiEvent midiEvent)
@@ -122,27 +147,33 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
   {
     if (!this.IsPlaying)
       throw new InvalidOperationException("Player is not playing!");
-    long ticks = this.TimeToTicks(time);
-    long duration = MidiPlayerBase.GetDuration(this._midiTrack);
-    if (ticks > duration)
+
+    long timeInTicks = this.TimeToTicks(time);
+    long durationInTicks = MidiPlayerBase.GetDuration(this._midiTrack);
+    if (timeInTicks > durationInTicks)
       throw new ArgumentOutOfRangeException("Player cannot seek beyond its end!");
+
+    // find the nearest event
     TimedEvent[] array = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray<TimedEvent>();
     for (int index = 0; index < array.Length; ++index)
     {
-      if (array[index].Time >= ticks)
+      if (array[index].Time >= timeInTicks)
       {
         this._eventIndex = index;
         break;
       }
     }
-    this._elapsedTime = this.TicksToTime(ticks);
+
+    this._elapsedTime = this.TicksToTime(timeInTicks);
   }
 
   public bool TrySeek(double time)
   {
     if (!this.IsPlaying)
       return false;
-    this.Seek(Math.Min(Math.Max(time, 0.0), this.Duration));
+
+    double clampedTime = Math.Min(Math.Max(time, 0.0), this.Duration);
+    this.Seek(clampedTime);
     return true;
   }
 
@@ -150,6 +181,7 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
   {
     if (!this.IsPlaying && !this.IsFinished)
       throw new InvalidOperationException("Cannot stop MIDI playback, the player is not playing!");
+
     this._midiTrack = (TrackChunk) null;
     this._tempoMap = (TempoMap) null;
     this._beatsPerMinute = 120;
@@ -159,6 +191,7 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     this._duration = 0.0;
     this._eventIndex = 0;
     this._channel = 0;
+
     this.OnStop();
   }
 
@@ -185,18 +218,20 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     float time,
     InstrumentType instrumentType)
   {
-    string assetPath;
-    float modPitch;
-    if (!this.IsSourceValid() || instrumentType == null || !instrumentType.GetPitchSound(pitch, out assetPath, out modPitch))
-      return (SoundParams) null;
-    return new SoundParams(new AssetLocation("instruments", assetPath))
+    if (this.IsSourceValid() && instrumentType != null && instrumentType.GetPitchSound(pitch, out string assetPath, out float soundPitch))
     {
-      Volume = Constants.Playback.GetVolumeFromVelocity(velocity),
-      DisposeOnFinish = true,
-      RelativePosition = false,
-      Position = this.GetSourcePosition(),
-      Pitch = modPitch
-    };
+            SoundParams soundParams = new(new AssetLocation("instruments", assetPath))
+            {
+                Volume = Constants.Playback.GetVolumeFromVelocity(velocity),
+                DisposeOnFinish = true,
+                RelativePosition = false,
+                Position = this.GetSourcePosition(),
+                Pitch = soundPitch
+            };
+            return soundParams;
+    }
+
+    return null;
   }
 
   protected abstract bool IsSourceValid();

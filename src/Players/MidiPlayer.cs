@@ -10,76 +10,108 @@ using Vintagestory.API.MathTools;
 
 namespace VSInstrumentsBase.src.Players;
 
-public class MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentType) : 
+public class MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentType) :
   MidiPlayerBase(api, instrumentType),
   IDisposable
 {
-  private readonly ILoadedSound[] _sounds;
+  private readonly ILoadedSound[] _sounds = new ILoadedSound[Constants.Note.NoteCount];
+
   private readonly IPlayer _source = source;
 
   protected override void OnNoteOn(Pitch pitch, float velocity, int channel, float time)
   {
-    if (!(this.CoreAPI is ICoreClientAPI coreApi))
-      return;
-    int index = (int) pitch;
-    this.TryRemoveSound(index, 0.25f);
-    SoundParams soundParams = this.CreateSoundParams(pitch, velocity, channel, time, this.InstrumentType);
-    if (soundParams == null)
-      return;
-    ILoadedSound iloadedSound = coreApi.World.LoadSound(soundParams);
-    if (iloadedSound != null)
+    if (CoreAPI is not ICoreClientAPI clientAPI)
     {
-      this._sounds[index] = iloadedSound;
-      iloadedSound.Start();
+      return;
+    }
+
+    int index = (int)pitch;
+    TryRemoveSound(index, Constants.Playback.MinFadeOutDuration);
+
+    SoundParams soundParams = CreateSoundParams(pitch, velocity, channel, time, InstrumentType);
+    if (soundParams != null)
+    {
+      ILoadedSound sound = clientAPI.World.LoadSound(soundParams);
+      if (sound != null)
+      {
+        _sounds[index] = sound;
+        sound.Start();
+      }
     }
   }
 
   protected override void OnNoteOff(Pitch pitch, float velocity, int channel, float time)
   {
-    if (!(this.CoreAPI is ICoreClientAPI))
+    if (CoreAPI is not ICoreClientAPI)
+    {
       return;
-    this.TryRemoveSound((int) pitch, Constants.Playback.GetFadeDurationFromVelocity(velocity));
+    }
+
+    int index = (int)pitch;
+    float fadeDuration = Constants.Playback.GetFadeDurationFromVelocity(velocity);
+    TryRemoveSound(index, fadeDuration);
   }
 
-  protected override bool IsSourceValid() => this._source != null && this._source.Entity != null;
+  protected override bool IsSourceValid()
+  {
+    return _source != null && _source.Entity != null;
+  }
 
-  protected override Vec3f GetSourcePosition() => ((Entity) this._source.Entity).Pos.XYZFloat;
+  protected override Vec3f GetSourcePosition()
+  {
+    return _source.Entity.Pos.XYZFloat;
+  }
 
   protected override void SetPosition(Vec3f sourcePosition)
   {
-    for (int index = 0; index < this._sounds.Length; ++index)
-      this._sounds[index]?.SetPosition(sourcePosition);
+    for (int i = 0; i < _sounds.Length; ++i)
+    {
+      ILoadedSound sound = _sounds[i];
+      if (sound == null)
+      {
+        continue;
+      }
+
+      sound.SetPosition(sourcePosition);
+    }
   }
 
   private void TryRemoveSound(int index, float fadeDuration)
   {
-    ILoadedSound sound = this._sounds[index];
+    ILoadedSound sound = _sounds[index];
     if (sound == null)
       return;
-    if ((double) fadeDuration <= 0.0)
+
+    if (fadeDuration <= 0)
     {
-      ((IDisposable) sound).Dispose();
-      this._sounds[index] = (ILoadedSound) null;
+      sound.Dispose();
+      _sounds[index] = null;
+      return;
     }
     else
     {
       sound.FadeOutAndStop(fadeDuration);
-      this._sounds[index] = (ILoadedSound) null;
+      _sounds[index] = null;
+      return;
     }
   }
 
   protected override void OnStop()
   {
-    this.StopAllSounds(0.25f);
+    StopAllSounds(Constants.Playback.MinFadeOutDuration);
     base.OnStop();
   }
 
   protected void StopAllSounds(float fadeDuration)
   {
-    for (int index = 0; index < this._sounds.Length; ++index)
-      this.TryRemoveSound(index, fadeDuration);
-    Array.Clear((Array) this._sounds);
+    for (int i = 0; i < _sounds.Length; ++i)
+      TryRemoveSound(i, fadeDuration);
+
+    Array.Clear(_sounds);
   }
 
-  public override void Dispose() => this.StopAllSounds(0.0f);
+  public override void Dispose()
+  {
+    StopAllSounds(0);
+  }
 }
