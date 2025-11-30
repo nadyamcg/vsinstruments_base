@@ -1,0 +1,90 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\Mods\mod</OutputPath>
+    <AssemblyName>vsinstruments_base</AssemblyName>
+  </PropertyGroup>
+
+  <!-- cross-platform Vintage Story installation detection -->
+  <PropertyGroup>
+    <!-- allow override via VINTAGE_STORY environment variable -->
+    <GameDirectory Condition="'$(VINTAGE_STORY)' != ''">$(VINTAGE_STORY)</GameDirectory>
+    <!-- Vintage Story installation path - auto-detect for cross-platform compatibility -->
+    <GameDirectory Condition="'$(GameDirectory)' == '' AND '$(OS)' == 'Windows_NT'">$(AppData)/Vintagestory</GameDirectory>
+    <!-- Flatpak installation on Linux -->
+    <GameDirectory Condition="'$(GameDirectory)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('/var/lib/flatpak/app/at.vintagestory.VintageStory')">/var/lib/flatpak/app/at.vintagestory.VintageStory/x86_64/stable/active/files/extra/vintagestory</GameDirectory>
+    <!-- AUR/system installation on Linux -->
+    <GameDirectory Condition="'$(GameDirectory)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('/opt/vintagestory')">/opt/vintagestory</GameDirectory>
+    <!-- standard Linux installation -->
+    <GameDirectory Condition="'$(GameDirectory)' == '' AND '$(OS)' != 'Windows_NT' AND !Exists('/var/lib/flatpak/app/at.vintagestory.VintageStory')">$(HOME)/.config/VintagestoryData</GameDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="VintagestoryAPI">
+      <HintPath>$(GameDirectory)/VintagestoryAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VSSurvivalMod">
+      <HintPath>$(GameDirectory)/Mods/VSSurvivalMod.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VSEssentials">
+      <HintPath>$(GameDirectory)/Mods/VSEssentials.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VSCreativeMod">
+      <HintPath>$(GameDirectory)/Mods/VSCreativeMod.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(GameDirectory)/Lib/Newtonsoft.Json.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="VintagestoryLib">
+      <HintPath>$(GameDirectory)/VintagestoryLib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(GameDirectory)/Lib/protobuf-net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+<ItemGroup>
+  <Content Include="assets\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </Content>
+  <Content Include="modinfo.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </Content>
+</ItemGroup>
+
+<ItemGroup>
+  <Compile Remove="decomp3/**" />
+  <EmbeddedResource Remove="decomp3/**" />
+  <None Remove="decomp3/**" />
+</ItemGroup>
+
+<ItemGroup>
+  <PackageReference Include="Melanchall.DryWetMidi" Version="8.0.2" />
+</ItemGroup>
+
+<!-- copy DryWetMidi managed DLL and remove native DLLs -->
+<Target Name="AfterBuild" AfterTargets="Build">
+  <!-- copy managed DryWetMidi DLL -->
+  <ItemGroup>
+    <DryWetMidiDll Include="$(NuGetPackageRoot)melanchall.drywetmidi\8.0.2\lib\netstandard2.0\Melanchall.DryWetMidi.dll" />
+  </ItemGroup>
+  <Copy SourceFiles="@(DryWetMidiDll)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+
+  <!-- remove native DLLs to prevent "Bad IL format" errors in Vintage Story -->
+  <ItemGroup>
+    <NativeDllsToRemove Include="$(OutputPath)\Melanchall_DryWetMidi_Native*.dll" />
+    <NativeDllsToRemove Include="$(OutputPath)\Melanchall_DryWetMidi_Native*.dylib" />
+  </ItemGroup>
+  <Delete Files="@(NativeDllsToRemove)" />
+</Target>
+
+</Project>

@@ -1,0 +1,6 @@
+[submodule "extern/Midi"]
+	path = extern/Midi
+	url = https://github.com/exocs/midi-dot-net
+[submodule "extern/MidiParser"]
+	path = extern/MidiParser
+	url = https://github.com/exocs/midi-parser
