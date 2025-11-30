@@ -4,6 +4,7 @@
 // MVID: 7554D117-662F-4F07-A243-1ECE784371FD
 // Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
 
+using VSInstrumentsBase.src;
 using VSInstrumentsBase.src.Types;
 using Melanchall.DryWetMidi.Common;
 using Melanchall.DryWetMidi.Core;

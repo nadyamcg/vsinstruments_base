@@ -6,7 +6,7 @@
 
 using System.Runtime.InteropServices;
 
-namespace vsinstruments_base.src;
+namespace VSInstrumentsBase.src;
 
 public static class Constants
 {
