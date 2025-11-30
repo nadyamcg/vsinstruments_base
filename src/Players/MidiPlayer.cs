@@ -1,158 +1,90 @@
-﻿using System;
+﻿// Decompiled with JetBrains decompiler
+// Type: Instruments.Players.MidiPlayer
+// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
+// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
+
+using VSInstrumentsBase.src.Types;
+using VSInstrumentsBase.src.Midi;
+using System;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
-using Midi;
-using Instruments.Types;
 
-namespace Instruments.Players
+#nullable disable
+namespace VSInstrumentsBase.src.Players;
+
+public class MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentType) : 
+  MidiPlayerBase(api, instrumentType),
+  IDisposable
 {
-	//
-	// Summary:
-	//     Basic implementation of a MidiPlayer that can be further specialized to playback MIDI tracks on the client.
-	public class MidiPlayer : MidiPlayerBase, IDisposable
-	{
-		//
-		// Summary:
-		//     List of all active sounds with each slot representing a single pitch.
-		//     Contents may be null if no sound is playing for provided slot.
-		private ILoadedSound[] _sounds;
-		//
-		// Summary:
-		//     The source of playback.
-		private IPlayer _source;
-		//
-		// Summary:
-		//     Creates new music player.
-		public MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentType)
-			: base(api, instrumentType)
-		{
-			_sounds = new ILoadedSound[Constants.Note.NoteCount];
-			_source = source;
-		}
-		//
-		// Summary:
-		//     Starts playing a note.
-		protected override void OnNoteOn(Pitch pitch, float velocity, int channel, float time)
-		{
-			// Do not perform any playback on the server:
-			if (CoreAPI is not ICoreClientAPI clientAPI)
-			{
-				return;
-			}
+  private readonly ILoadedSound[] _sounds;
+  private readonly IPlayer _source = source;
 
-			// If, by any chance, the events are mismatched or something else has happened
-			// and there is a sound already playing in the slot, simply stop it and replace
-			// it immediately with the new sound:
-			int index = (int)pitch;
-			TryRemoveSound(index, Constants.Playback.MinFadeOutDuration);
+  protected override void OnNoteOn(Pitch pitch, float velocity, int channel, float time)
+  {
+    if (!(this.CoreAPI is ICoreClientAPI coreApi))
+      return;
+    int index = (int) pitch;
+    this.TryRemoveSound(index, 0.25f);
+    SoundParams soundParams = this.CreateSoundParams(pitch, velocity, channel, time, this.InstrumentType);
+    if (soundParams == null)
+      return;
+    ILoadedSound iloadedSound = coreApi.World.LoadSound(soundParams);
+    if (iloadedSound != null)
+    {
+      this._sounds[index] = iloadedSound;
+      iloadedSound.Start();
+    }
+  }
 
-			// Try to prepare sound params for the new sound to be played in the targeted slot,
-			// and load and play the sound if possible.
-			SoundParams soundParams = CreateSoundParams(pitch, velocity, channel, time, InstrumentType);
-			if (soundParams != null)
-			{
-				ILoadedSound sound = clientAPI.World.LoadSound(soundParams);
-				if (sound != null)
-				{
-					_sounds[index] = sound;
-					sound.Start();
-				}
-			}
-		}
-		//
-		// Summary:
-		//     Stops playing a note.
-		protected override void OnNoteOff(Pitch pitch, float velocity, int channel, float time)
-		{
-			// Do not perform any playback on the server:
-			if (CoreAPI is not ICoreClientAPI)
-			{
-				return;
-			}
+  protected override void OnNoteOff(Pitch pitch, float velocity, int channel, float time)
+  {
+    if (!(this.CoreAPI is ICoreClientAPI))
+      return;
+    this.TryRemoveSound((int) pitch, Constants.Playback.GetFadeDurationFromVelocity(velocity));
+  }
 
-			int index = (int)pitch;
-			float fadeDuration = Constants.Playback.GetFadeDurationFromVelocity(velocity);
-			TryRemoveSound(index, fadeDuration);
-		}
-		//
-		// Summary:
-		//     Returns the source from which sound should originate is valid.
-		protected override bool IsSourceValid()
-		{
-			return _source != null && _source.Entity != null;
-		}
-		//
-		// Summary:
-		//     Returns the position from which sounds should originate.
-		protected override Vec3f GetSourcePosition()
-		{
-			return _source.Entity.Pos.XYZFloat;
-		}
-		//
-		// Summary:
-		//     Sets the position of all active sounds.
-		protected override void SetPosition(Vec3f sourcePosition)
-		{
-			for (int i = 0; i < _sounds.Length; ++i)
-			{
-				ILoadedSound sound = _sounds[i];
-				if (sound == null)
-				{
-					continue;
-				}
+  protected override bool IsSourceValid() => this._source != null && this._source.Entity != null;
 
-				sound.SetPosition(sourcePosition);
-			}
-		}
-		//
-		// Summary:
-		//     Removes a sound from the active sounds.
-		// Parameters:
-		//   fadeDuration: Duration to fade out the sound in (in seconds) or 0 for immediate.
-		private void TryRemoveSound(int index, float fadeDuration)
-		{
-			ILoadedSound sound = _sounds[index];
-			if (sound == null)
-				return;
+  protected override Vec3f GetSourcePosition() => ((Entity) this._source.Entity).Pos.XYZFloat;
 
-			if (fadeDuration <= 0)
-			{
-				sound.Dispose();
-				_sounds[index] = null;
-				return;
-			}
-			else
-			{
-				sound.FadeOutAndStop(fadeDuration);
-				_sounds[index] = null;
-				return;
-			}
-		}
-		//
-		// Summary:
-		//     Callback raised when the playback stops.
-		protected override void OnStop()
-		{
-			StopAllSounds(Constants.Playback.MinFadeOutDuration);
-			base.OnStop();
-		}
-		//
-		// Summary:
-		//     Stops all outgoing sounds in the provided duration.
-		protected void StopAllSounds(float fadeDuration)
-		{
-			for (int i = 0; i < _sounds.Length; ++i)
-				TryRemoveSound(i, fadeDuration);
+  protected override void SetPosition(Vec3f sourcePosition)
+  {
+    for (int index = 0; index < this._sounds.Length; ++index)
+      this._sounds[index]?.SetPosition(sourcePosition);
+  }
 
-			Array.Clear(_sounds);
-		}
-		//
-		// Summary:
-		//     Dispose of this player and all of its allocated resources and sounds.
-		public override void Dispose()
-		{
-			StopAllSounds(0);
-		}
-	}
+  private void TryRemoveSound(int index, float fadeDuration)
+  {
+    ILoadedSound sound = this._sounds[index];
+    if (sound == null)
+      return;
+    if ((double) fadeDuration <= 0.0)
+    {
+      ((IDisposable) sound).Dispose();
+      this._sounds[index] = (ILoadedSound) null;
+    }
+    else
+    {
+      sound.FadeOutAndStop(fadeDuration);
+      this._sounds[index] = (ILoadedSound) null;
+    }
+  }
+
+  protected override void OnStop()
+  {
+    this.StopAllSounds(0.25f);
+    base.OnStop();
+  }
+
+  protected void StopAllSounds(float fadeDuration)
+  {
+    for (int index = 0; index < this._sounds.Length; ++index)
+      this.TryRemoveSound(index, fadeDuration);
+    Array.Clear((Array) this._sounds);
+  }
+
+  public override void Dispose() => this.StopAllSounds(0.0f);
 }

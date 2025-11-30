@@ -1,406 +1,214 @@
-﻿using System;
+﻿// Decompiled with JetBrains decompiler
+// Type: Instruments.Players.MidiPlayerBase
+// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
+// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
+
+using VSInstrumentsBase.src.Types;
+using Melanchall.DryWetMidi.Common;
+using Melanchall.DryWetMidi.Core;
+using Melanchall.DryWetMidi.Interaction;
+using VSInstrumentsBase.src.Midi;
+using System;
+using System.Diagnostics;
+using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
-using Midi;
-using MidiParser;
-using Instruments.Types;
 
-namespace Instruments.Players
+#nullable disable
+namespace VSInstrumentsBase.src.Players;
+
+public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType) : IDisposable
 {
-	//
-	// Summary:
-	//     Base class for players that allow processing and playing back parsed MIDI files.
-	public abstract class MidiPlayerBase : IDisposable
-	{
-		//
-		// Summary:
-		//     The core interface to the game.
-		protected ICoreAPI CoreAPI { get; private set; }
-		//
-		// Summary:
-		//     The instrument type associated with this player.
-		protected InstrumentType InstrumentType { get; private set; }
-		//
-		// Summary:
-		//     The active and parsed track to be played by this player.
-		private MidiTrack _midiTrack;
-		//
-		// Summary:
-		//     The beats per minute of the active track.
-		private int _beatsPerMinute;
-		//
-		// Summary:
-		//     The ticks per quarter note of the active track, as specified in the MIDI.
-		private int _ticksPerQuarterNote;
-		//
-		// Summary:
-		//     The duration of the active track in ticks.
-		private int _ticksDuration;
-		//
-		// Summary:
-		//     Elapsed time since start in seconds.
-		private double _elapsedTime;
-		//
-		// Summary:
-		//     The duration of active track in seconds.
-		private double _duration;
-		//
-		// Summary:
-		//     The index of the last MIDI event polled.
-		private int _eventIndex;
-		//
-		// Summary:
-		//     The selected channel (track) index.
-		private int _channel;
-		//
-		// Summary:
-		//     Creates new MIDI player.
-		// Parameters:
-		//   api: The API interface to the game world.
-		//   instrumentType: The instrument type this player should use.
-		public MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType)
-		{
-			CoreAPI = api;
-			InstrumentType = instrumentType;
-		}
-		//
-		// Summary:
-		//     Returns the duration of the played track in seconds.
-		public double Duration
-		{
-			get
-			{
-				return _duration;
-			}
-		}
-		//
-		// Summary:
-		//     Returns the elapsed time of this player in seconds.
-		public double ElapsedTime
-		{
-			get
-			{
-				return _elapsedTime;
-			}
-		}
-		//
-		// Summary:
-		//     Returns whether this player is currently playing.
-		public bool IsPlaying
-		{
-			get
-			{
-				return _midiTrack != null && _elapsedTime < _duration;
-			}
-		}
-		//
-		// Summary:
-		//     Returns whether this player has finished its playback.
-		public bool IsFinished
-		{
-			get
-			{
-				return _midiTrack != null && _elapsedTime >= _duration;
-			}
-		}
-		//
-		// Summary:
-		//     Returns the duration of this track in ticks.
-		private int GetDuration(MidiTrack track)
-		{
-			// Find the last event and converts it tick time
-			// to real-time duration, to know when this track ends.
-			int count = track.MidiEvents.Count;
-			if (count > 0)
-			{
-				return track.MidiEvents[count - 1].Time;
-			}
-			return 0;
-		}
-		//
-		// Summary:
-		//     Converts elapsed time in seconds to elapsed ticks.
-		//
-		// Parameters:
-		//   time: Time in (elapsed) seconds to convert to ticks.
-		private long TimeToTicks(double seconds)
-		{
-			return MidiExtensions.TimeToTicks(seconds, _beatsPerMinute, _ticksPerQuarterNote);
-		}
-		//
-		// Summary:
-		//     Converts elapsed ticks to elapsed time in seconds.
-		//
-		// Parameters:
-		//   ticks: Ticks to convert to (elapsed) time in seconds.
-		private double TicksToTime(long ticks)
-		{
-			return MidiExtensions.TicksToTime(ticks, _beatsPerMinute, _ticksPerQuarterNote);
-		}
-		//
-		// Summary:
-		//     Plays the specified track of the provided MIDI file.
-		public void Play(MidiFile midi, int channel)
-		{
-			if (IsPlaying)
-			{
-				throw new InvalidOperationException("Cannot start MIDI playback, the player is already playing!");
-			}
+  private TrackChunk _midiTrack;
+  private int _beatsPerMinute;
+  private int _ticksPerQuarterNote;
+  private int _ticksDuration;
+  private double _elapsedTime;
+  private double _duration;
+  private int _eventIndex;
+  private TempoMap _tempoMap;
+  private int _channel;
 
-			if (midi == null)
-			{
-				throw new InvalidOperationException("Cannot start MIDI playback, the provided file is invalid!");
-			}
+  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+  protected ICoreAPI CoreAPI { get; private set; } = api;
 
-			_midiTrack = midi.Tracks[channel];
+  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+  protected InstrumentType InstrumentType { get; private set; } = instrumentType;
 
-			_beatsPerMinute = midi.ReadBPM();
-			_ticksPerQuarterNote = midi.TicksPerQuarterNote;
+  public double Duration => this._duration;
 
-			_elapsedTime = 0;
-			_ticksDuration = GetDuration(midi.Tracks[channel]);
-			_duration = TicksToTime(_ticksDuration);
+  public double ElapsedTime => this._elapsedTime;
 
-			_channel = channel;
-			_eventIndex = 0;
-		}
-		//
-		// Summary:
-		//     Opens and plays the MIDI file at the provided file path.
-		public void Play(string midiFilePath, int channel)
-		{
-			MidiFile midiFile = new MidiFile(midiFilePath);
-			Play(midiFile, channel);
-		}
-		//
-		// Summary:
-		//     Update the playback of this player.
-		//
-		// Parameters:
-		//   deltaTime: Elapsed time in seconds.
-		public void Update(float deltaTime)
-		{
-			if (!IsPlaying)
-			{
-				throw new InvalidOperationException("Player is not playing!");
-			}
+  public bool IsPlaying => this._midiTrack != null && this._elapsedTime < this._duration;
 
-			_elapsedTime += deltaTime;
-			long elapsedTicks = TimeToTicks(_elapsedTime);
+  public bool IsFinished => this._midiTrack != null && this._elapsedTime >= this._duration;
 
-			// Clamp to bounds - the playback is finished.
-			if (elapsedTicks > _ticksDuration)
-				_elapsedTime = _duration;
+  private static long GetDuration(TrackChunk track)
+  {
+    TimedEvent timedEvent = TimedEventsManagingUtilities.GetTimedEvents(track, (TimedEventDetectionSettings) null).LastOrDefault<TimedEvent>();
+    return timedEvent != null ? timedEvent.Time : 0L;
+  }
 
-			// Peeks one message in the track event list and if it
-			// is time for it to be played, true is returned.
-			bool tryPollEvent(out MidiEvent outEvent)
-			{
-				// Out of events range, no work left.
-				if (_eventIndex >= _midiTrack.MidiEvents.Count)
-				{
-					outEvent = default;
-					return false;
-				}
+  private long TimeToTicks(double seconds)
+  {
+    return MidiExtensions.TimeToTicks(seconds, this._beatsPerMinute, this._ticksPerQuarterNote);
+  }
 
-				MidiEvent polledEvent = _midiTrack.MidiEvents[_eventIndex];
-				if (polledEvent.Time <= elapsedTicks)
-				{
-					outEvent = polledEvent;
-					++_eventIndex;
-					return true;
-				}
+  private double TicksToTime(long ticks)
+  {
+    return MidiExtensions.TicksToTime(ticks, this._beatsPerMinute, this._ticksPerQuarterNote);
+  }
 
-				outEvent = default;
-				return false;
-			}
+  public void Play(MidiFile midi, int channel)
+  {
+    if (this.IsPlaying)
+      throw new InvalidOperationException("Cannot start MIDI playback, the player is already playing!");
+    TrackChunk[] trackChunkArray = midi != null ? Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>() : throw new InvalidOperationException("Cannot start MIDI playback, the provided file is invalid!");
+    if (channel >= trackChunkArray.Length)
+      throw new ArgumentOutOfRangeException(nameof (channel), "Track index out of range");
+    this.CoreAPI.Logger.Notification($"[MidiPlayerBase] Starting playback: {trackChunkArray.Length} tracks, channel {channel}, instrument {this.InstrumentType?.Name ?? "unknown"}");
+    this._midiTrack = trackChunkArray[channel];
+    this._tempoMap = TempoMapManagingUtilities.GetTempoMap(midi);
+    this._beatsPerMinute = midi.ReadBPM();
+    this._ticksPerQuarterNote = midi.TimeDivision is TicksPerQuarterNoteTimeDivision timeDivision ? (int) timeDivision.TicksPerQuarterNote : 480;
+    this._elapsedTime = 0.0;
+    this._ticksDuration = (int) MidiPlayerBase.GetDuration(this._midiTrack);
+    this._duration = this.TicksToTime((long) this._ticksDuration);
+    this._channel = channel;
+    this._eventIndex = 0;
+  }
 
-			// Try polling for possible events to play
-			while (tryPollEvent(out MidiEvent midiEvent))
-			{
-				int channel = (int)_channel;
-				float time = (float)TicksToTime(midiEvent.Time);
-				switch (midiEvent.MidiEventType)
-				{
-					case MidiEventType.NoteOff:
-						OnNoteOff((Pitch)midiEvent.Note, Constants.Midi.NormalizeVelocity((byte)midiEvent.Velocity), channel, time);
-						break;
+  public void Play(string midiFilePath, int channel)
+  {
+    this.Play(MidiFile.Read(midiFilePath, (ReadingSettings) null), channel);
+  }
 
-					case MidiEventType.NoteOn:
-						OnNoteOn((Pitch)midiEvent.Note, Constants.Midi.NormalizeVelocity((byte)midiEvent.Velocity), channel, time);
-						break;
+  public void Update(float deltaTime)
+  {
+    if (!this.IsPlaying)
+      throw new InvalidOperationException("Player is not playing!");
+    this._elapsedTime += (double) deltaTime;
+    long ticks = this.TimeToTicks(this._elapsedTime);
+    if (ticks > (long) this._ticksDuration)
+      this._elapsedTime = this._duration;
+    for (TimedEvent[] array = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray<TimedEvent>(); this._eventIndex < array.Length; ++this._eventIndex)
+    {
+      TimedEvent timedEvent = array[this._eventIndex];
+      if (timedEvent.Time <= ticks)
+        this.ProcessMidiEvent(timedEvent.Event);
+      else
+        break;
+    }
+    this.SetPosition(this.GetSourcePosition());
+  }
 
-					case MidiEventType.KeyAfterTouch:
-						break;
-					case MidiEventType.ControlChange:
-						break;
-					case MidiEventType.ProgramChange:
-						break;
-					case MidiEventType.ChannelAfterTouch:
-						break;
-					case MidiEventType.PitchBendChange:
-						break;
-					case MidiEventType.MetaEvent:
-						break;
-				}
-			}
+  private void ProcessMidiEvent(MidiEvent midiEvent)
+  {
+    float elapsedTime = (float) this._elapsedTime;
+    switch (midiEvent)
+    {
+      case NoteOffEvent noteOffEvent:
+        this.OnNoteOff((Pitch)(byte)(((NoteEvent)noteOffEvent).NoteNumber), Constants.Midi.NormalizeVelocity((byte)(((NoteEvent)noteOffEvent).Velocity)), (int)(byte)(((ChannelEvent)noteOffEvent).Channel), elapsedTime);
+        break;
+      case NoteOnEvent noteOnEvent:
+        if ((byte)(((NoteEvent)noteOnEvent).Velocity) == (byte) 0)
+        {
+          this.OnNoteOff((Pitch)(byte)(((NoteEvent)noteOnEvent).NoteNumber), Constants.Midi.NormalizeVelocity((byte)(((NoteEvent)noteOnEvent).Velocity)), (int)(byte)(((ChannelEvent)noteOnEvent).Channel), elapsedTime);
+          break;
+        }
+        this.OnNoteOn((Pitch)(byte)(((NoteEvent)noteOnEvent).NoteNumber), Constants.Midi.NormalizeVelocity((byte)(((NoteEvent)noteOnEvent).Velocity)), (int)(byte)(((ChannelEvent)noteOnEvent).Channel), elapsedTime);
+        break;
+    }
+  }
 
-			// Fetch new source position and update all sounds:
-			Vec3f sourcePosition = GetSourcePosition();
-			SetPosition(sourcePosition);
-		}
-		//
-		// Summary:
-		//     Seeks to the position within the player without playing notes.
-		//
-		// Parameters:
-		//   time: Time in seconds to seek to.
-		public void Seek(double time)
-		{
-			if (!IsPlaying)
-			{
-				throw new InvalidOperationException("Player is not playing!");
-			}
+  public void Seek(double time)
+  {
+    if (!this.IsPlaying)
+      throw new InvalidOperationException("Player is not playing!");
+    long ticks = this.TimeToTicks(time);
+    long duration = MidiPlayerBase.GetDuration(this._midiTrack);
+    if (ticks > duration)
+      throw new ArgumentOutOfRangeException("Player cannot seek beyond its end!");
+    TimedEvent[] array = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray<TimedEvent>();
+    for (int index = 0; index < array.Length; ++index)
+    {
+      if (array[index].Time >= ticks)
+      {
+        this._eventIndex = index;
+        break;
+      }
+    }
+    this._elapsedTime = this.TicksToTime(ticks);
+  }
 
-			long timeInTicks = TimeToTicks(time);
-			long durationInTicks = GetDuration(_midiTrack);
-			if (timeInTicks > durationInTicks)
-			{
-				throw new ArgumentOutOfRangeException("Player cannot seek beyond its end!");
-			}
+  public bool TrySeek(double time)
+  {
+    if (!this.IsPlaying)
+      return false;
+    this.Seek(Math.Min(Math.Max(time, 0.0), this.Duration));
+    return true;
+  }
 
-			// Find the nearest event
-			for (int i = 0; i < _midiTrack.MidiEvents.Count; ++i)
-			{
-				if (_midiTrack.MidiEvents[i].Time >= timeInTicks)
-				{
-					_eventIndex = i;
-					break;
-				}
-			}
+  public void Stop()
+  {
+    if (!this.IsPlaying && !this.IsFinished)
+      throw new InvalidOperationException("Cannot stop MIDI playback, the player is not playing!");
+    this._midiTrack = (TrackChunk) null;
+    this._tempoMap = (TempoMap) null;
+    this._beatsPerMinute = 120;
+    this._ticksPerQuarterNote = 0;
+    this._elapsedTime = 0.0;
+    this._ticksDuration = 0;
+    this._duration = 0.0;
+    this._eventIndex = 0;
+    this._channel = 0;
+    this.OnStop();
+  }
 
+  public bool TryStop()
+  {
+    if (!this.IsPlaying)
+      return false;
+    this.Stop();
+    return true;
+  }
 
-			_elapsedTime = TicksToTime(timeInTicks);
-		}
-		//
-		// Summary:
-		//     Seeks to the position, limited by the player bounds, within the player without playing
-		//     any notes and only if Seek can be performed.
-		//
-		// Parameters:
-		//   time: Time in seconds to seek to.
-		// Returns:
-		//     Whether the operation was successfull.
-		public bool TrySeek(double time)
-		{
-			if (!IsPlaying)
-			{
-				return false;
-			}
+  protected abstract void OnNoteOn(Pitch pitch, float velocity, int channel, float time);
 
-			double clampedTime = Math.Min(Math.Max(time, 0), Duration);
-			Seek(clampedTime);
-			return true;
-		}
-		//
-		// Summary:
-		//     Stops the playback.
-		//     The player must be playing or finished in order for it to be able to stop!
-		public void Stop()
-		{
-			if (!IsPlaying && !IsFinished)
-			{
-				throw new InvalidOperationException("Cannot stop MIDI playback, the player is not playing!");
-			}
+  protected abstract void OnNoteOff(Pitch pitch, float velocity, int channel, float time);
 
-			_midiTrack = null;
+  protected virtual void OnStop()
+  {
+  }
 
-			_beatsPerMinute = MidiExtensions.DefaultBPM;
-			_ticksPerQuarterNote = 0;
+  protected SoundParams CreateSoundParams(
+    Pitch pitch,
+    float velocity,
+    int channel,
+    float time,
+    InstrumentType instrumentType)
+  {
+    string assetPath;
+    float modPitch;
+    if (!this.IsSourceValid() || instrumentType == null || !instrumentType.GetPitchSound(pitch, out assetPath, out modPitch))
+      return (SoundParams) null;
+    return new SoundParams(new AssetLocation("instruments", assetPath))
+    {
+      Volume = Constants.Playback.GetVolumeFromVelocity(velocity),
+      DisposeOnFinish = true,
+      RelativePosition = false,
+      Position = this.GetSourcePosition(),
+      Pitch = modPitch
+    };
+  }
 
-			_elapsedTime = 0;
-			_ticksDuration = 0;
-			_duration = 0;
+  protected abstract bool IsSourceValid();
 
-			_eventIndex = 0;
-			_channel = 0;
+  protected abstract Vec3f GetSourcePosition();
 
-			OnStop();
-		}
-		//
-		// Summary:
-		//     Stops the playback, only if the playback is active.
-		// Returns:
-		//     Whether the stop action was successfull.
-		public bool TryStop()
-		{
-			if (IsPlaying)
-			{
-				Stop();
-				return true;
-			}
-			return false;
-		}
-		//
-		// Summary:
-		//     Callback raised when a MIDI NoteOn event occurs.
-		// Parameters:
-		//   pitch: The key pitch to be played.
-		//   velocity: The rate at which the key was pressed. (0-1)
-		//   channel: The source channel index.
-		//   time: The time in seconds this event occured at.
-		protected abstract void OnNoteOn(Pitch pitch, float velocity, int channel, float time);
-		//
-		// Summary:
-		//     Callback raised when a MIDI NoteOff event occurs.
-		// Parameters:
-		//   pitch: The key pitch to be stopped.
-		//   velocity: The rate at which the key was released. (0-1)
-		//   channel: The source channel index.
-		//   time: The time in seconds this event occured at.
-		protected abstract void OnNoteOff(Pitch pitch, float velocity, int channel, float time);
-		//
-		// Summary:
-		//     Callback raised when the playback stops.
-		protected virtual void OnStop() { }
-		//
-		// Summary:
-		//     Request sound params for the provided pitch played with specified properties.
-		// Returns:
-		//     SoundParams instance or null if there is no sound to be played for the specified configuration.
-		protected SoundParams CreateSoundParams(Pitch pitch, float velocity, int channel, float time, InstrumentType instrumentType)
-		{
-			if (IsSourceValid() && instrumentType.GetPitchSound(pitch, out string assetPath, out float soundPitch))
-			{
-				SoundParams soundParams = new SoundParams(new AssetLocation("instruments", assetPath));
-				soundParams.Volume = Constants.Playback.GetVolumeFromVelocity(velocity);
-				soundParams.DisposeOnFinish = true;
-				soundParams.RelativePosition = false;
-				soundParams.Position = GetSourcePosition();
-				soundParams.Pitch = soundPitch;
-				return soundParams;
-			}
+  protected abstract void SetPosition(Vec3f sourcePosition);
 
-			return null;
-		}
-		//
-		// Summary:
-		//     Returns whether the source is valid. With invalid source the playback will not occur.
-		protected abstract bool IsSourceValid();
-		//
-		// Summary:
-		//     Returns the source position or in other words the position from which sounds should originate.
-		protected abstract Vec3f GetSourcePosition();
-		//
-		// Summary:
-		//     Callback raised when the playback is updated.
-		// Parameters:
-		//   sourcePosition: The sound source position in world space.
-		protected abstract void SetPosition(Vec3f sourcePosition);
-		//
-		// Summary:
-		//     Dispose of this player and all of its allocated resources and sounds.
-		public abstract void Dispose();
-	}
+  public abstract void Dispose();
 }

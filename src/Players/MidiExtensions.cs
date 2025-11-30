@@ -1,385 +1,207 @@
-﻿using System.IO;
-using Midi;
-using MidiParser;
+﻿// Decompiled with JetBrains decompiler
+// Type: Instruments.Players.MidiExtensions
+// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
+// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
 
-namespace Instruments.Players
+using Melanchall.DryWetMidi.Core;
+using Melanchall.DryWetMidi.Interaction;
+using System;
+using System.Linq;
+
+#nullable disable
+namespace VSInstrumentsBase.src.Players;
+
+public static class MidiExtensions
 {
-	//
-	// Summary:
-	//     Class that stores and describes a single track within a MIDI file.
-	public class MidiTrackInfo
-	{
-		//
-		// Summary:
-		//     The index of this track.
-		public readonly int Index;
-		//
-		// Summary:
-		//     The length of this track in seconds.
-		public readonly double Duration;
-		//
-		// Summary:
-		//     Number of notes in the track.
-		public readonly int NoteCount;
-		//
-		// Summary:
-		//     Time in seconds at which the first note exists.
-		//     May be null if no notes are present.
-		public readonly double? FirstNoteTime;
-		//
-		// Summary:
-		//     Instrument defined by a program change in this track.
-		//     May be null if no such events are present.
-		public readonly Instrument? Instrument;
-		//
-		// Summary:
-		//     Returns the MIDI instrument in human readable format.
-		public string InstrumentText
-		{
-			get
-			{
-				if (!Instrument.HasValue)
-					return "Unknown";
+  public const int DefaultBPM = 120;
 
-				return Instrument.Value.Name();
-			}
-		}
-		//
-		// Summary:
-		//     Creates new midi track info for the provided track.
-		public MidiTrackInfo(MidiFile midi, int track)
-		{
-			Index = track;
-			Duration = midi.ReadTrackDuration(track);
-			NoteCount = midi.ReadNoteCount(track);
-			FirstNoteTime = (NoteCount > 0) ? midi.ReadFirstNoteInSeconds(track) : null;
-			Instrument = midi.FindInstrument(track);
-		}
-	}
-	//
-	// Summary:
-	//     Class that stores and describes a single MIDI file.
-	public class MidiFileInfo
-	{
-		//
-		// Summary:
-		//     Stores the generic information about this file.
-		public readonly FileInfo FileInfo;
-		//
-		// Summary:
-		//     Returns whether this file exists.
-		public bool Exists => FileInfo.Exists;
-		//
-		// Summary:
-		//     Actual and parsed MIDI file, if successfull.
-		private readonly MidiFile MidiFile;
-		//
-		// Summary:
-		//     Returns whether this object is a valid MIDI (file) info.
-		public bool IsMidi => MidiFile != null;
-		//
-		// Summary:
-		//     Returns the size of this file in KB.
-		public long SizeKB
-		{
-			get
-			{
-				return (long)(FileInfo.Length / 1000.0f);
-			}
-		}
-		//
-		// Summary:
-		//     Returns the BPM of the MIDI.
-		public readonly int BPM;
-		//
-		// Summary:
-		//     Returns the duration of the longest channel in the MIDI.
-		public readonly double Duration;
-		//
-		// Summary:
-		//     Stores information about individual tracks in this file.
-		public readonly MidiTrackInfo[] Tracks;
-		//
-		// Summary:
-		//     Returns the number of tracks in this file.
-		public int TracksCount
-		{
-			get
-			{
-				return Tracks.Length;
-			}
-		}
-		//
-		// Summary:
-		//     Returns the MIDI format in human readable format.
-		public string FormatText
-		{
-			get
-			{
-				int formatValue = IsMidi ? MidiFile.Format : -1;
-				switch (formatValue)
-				{
-					case 0: return "Single track";
-					case 1: return "Multi track";
-					case 2: return "Multi song";
-					default: return "Unknown";
-				}
-			}
-		}
-		//
-		// Summary:
-		//     Creates new MIDI file info from the provided absolute path.
-		public MidiFileInfo(string path)
-		{
-			// The file must exist to even be considered a valid MIDI.
-			this.FileInfo = new FileInfo(path);
-			if (!FileInfo.Exists)
-			{
-				return;
-			}
+  public static int ReadBPM(this MidiFile midi)
+  {
+    return (int) Math.Round(TempoMapManagingUtilities.GetTempoMap(midi).GetTempoAtTime((ITimeSpan) new MetricTimeSpan(0L)).BeatsPerMinute);
+  }
 
-			// If the file cannot be parsed, anything else is no longer
-			// relevant in this context.
-			try
-			{
-				this.MidiFile = new MidiFile(path);
-			}
-			catch
-			{
-				return;
-			}
+  public static double ReadTrackDuration(this MidiFile midi, int trackIndex)
+  {
+    TrackChunk[] array = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>();
+    if (trackIndex >= array.Length)
+      return 0.0;
+    TrackChunk trackChunk = array[trackIndex];
+    TempoMap tempoMap = TempoMapManagingUtilities.GetTempoMap(midi);
+    TimedEvent timedEvent = TimedEventsManagingUtilities.GetTimedEvents(trackChunk, (TimedEventDetectionSettings) null).LastOrDefault<TimedEvent>();
+    return timedEvent != null ? TimeConverter.ConvertTo<MetricTimeSpan>(timedEvent.Time, tempoMap).TotalSeconds : 0.0;
+  }
 
-			// Start by retrieving information about the midi itself:
-			BPM = MidiFile.ReadBPM();
-			Duration = MidiFile.ReadMaxTrackDuration();
-			Tracks = new MidiTrackInfo[MidiFile.TracksCount];
-			for (int i = 0; i < MidiFile.TracksCount; ++i)
-			{
-				Tracks[i] = new MidiTrackInfo(MidiFile, i);
-			}
-		}
-		//
-		// Summary:
-		//     Returns the actual MIDI file.
-		public MidiFile GetMidiFile()
-		{
-			// Even though this property could be made public, explicit method call is
-			// used instead to prevent accessing the file properties instead of the actual
-			// cached properties by accident.
-			return MidiFile;
-		}
-	}
+  public static double ReadFirstNoteInSeconds(this MidiFile midi, int trackIndex)
+  {
+    TrackChunk[] array = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>();
+    if (trackIndex >= array.Length)
+      return -1.0;
+    Note note = NotesManagingUtilities.GetNotes(array[trackIndex], (NoteDetectionSettings) null, (TimedEventDetectionSettings) null).FirstOrDefault<Note>();
+    if (note == null)
+      return -1.0;
+    TempoMap tempoMap = TempoMapManagingUtilities.GetTempoMap(midi);
+    return TimeConverter.ConvertTo<MetricTimeSpan>(note.Time, tempoMap).TotalSeconds;
+  }
 
-	//
-	// Summary:
-	//     Convenience class for MIDI file and player extensions.
-	public static class MidiExtensions
-	{
-		//
-		// Summary:
-		//     Default, fallback beats per minute as specified by the standard.
-		public const int DefaultBPM = 120;
+  public static int ReadNoteCount(this MidiFile midi, int trackIndex)
+  {
+    TrackChunk[] array = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>();
+    return trackIndex >= array.Length ? 0 : NotesManagingUtilities.GetNotes(array[trackIndex], (NoteDetectionSettings) null, (TimedEventDetectionSettings) null).Count<Note>();
+  }
 
-		//
-		// Summary:
-		//     Finds the BPM meta events in any of the provided tracks.
-		//     Fallbacks to default BPM of 120 as per the Midi standard.
-		public static int ReadBPM(MidiTrack[] tracks, int defaultValue = DefaultBPM)
-		{
-			// The MIDI file should contain a track with the timing meta event,
-			// that will contain the quarter notes per microseconds value, which
-			// is converted into BPM in the MidiParser and used for playback timing.
-			foreach (MidiTrack track in tracks)
-			{
-				foreach (MidiEvent midiEvent in track.MidiEvents)
-				{
-					if (midiEvent.Time > 0)
-						break;
+  public static double ReadMaxTrackDuration(this MidiFile midi)
+  {
+    TempoMap tempoMap = TempoMapManagingUtilities.GetTempoMap(midi);
+    TimedEvent timedEvent = TimedEventsManagingUtilities.GetTimedEvents(midi, (TimedEventDetectionSettings) null).LastOrDefault<TimedEvent>();
+    return timedEvent != null ? TimeConverter.ConvertTo<MetricTimeSpan>(timedEvent.Time, tempoMap).TotalSeconds : 0.0;
+  }
 
-					if (midiEvent.MidiEventType == MidiEventType.MetaEvent &&
-						midiEvent.MetaEventType == MetaEventType.Tempo)
-					{
-						return midiEvent.Arg2;
-					}
-				}
-			}
+  public static long TimeToTicks(double seconds, int bpm, int ticksPerQuarterNote)
+  {
+    double num = 60.0 / (double) bpm;
+    return (long) (seconds * ((double) ticksPerQuarterNote / num));
+  }
 
-			return defaultValue;
-		}
-		//
-		// Summary:
-		//     Finds the BPM meta events in any of the tracks of
-		//     the provided MIDI file.
-		public static int ReadBPM(this MidiFile file, int defaultValue = DefaultBPM)
-		{
-			if (file.TracksCount == 0)
-				return defaultValue;
+  public static double TicksToTime(long ticks, int bpm, int ticksPerQuarterNote)
+  {
+    double num = 60.0 / (double) bpm;
+    return (double) ticks * (num / (double) ticksPerQuarterNote);
+  }
 
-			return ReadBPM(file.Tracks, defaultValue);
-		}
-		//
-		// Summary:
-		//     Returns the duration of this track in ticks.
-		public static int ReadTrackDurationInTicks(MidiTrack track)
-		{
-			// Find the last event and converts it tick time
-			// to real-time duration, to know when this track ends.
-			int count = track.MidiEvents.Count;
-			if (count > 0)
-			{
-				return track.MidiEvents[count - 1].Time;
-			}
-			return 0;
-		}
-		//
-		// Summary:
-		//     Returns the time in ticks at which the first event occurs or -1 if none.
-		public static int ReadFirstNoteInTicks(MidiTrack track)
-		{
-			int count = track.MidiEvents.Count;
-			if (count > 0)
-			{
-				for (int e = 0; e < count; ++e)
-				{
-					if (track.MidiEvents[e].MidiEventType == MidiEventType.NoteOn)
-						return track.MidiEvents[e].Time;
-				}
-			}
-			return -1;
-		}
-		//
-		// Summary:
-		//     Returns the number of notes in the provided track.
-		public static int ReadNoteCount(MidiTrack track)
-		{
-			if (track.MidiEvents.Count == 0)
-				return 0;
-
-			int count = 0;
-			for (int i = 0; i < track.MidiEvents.Count; ++i)
-			{
-				if (track.MidiEvents[i].MidiEventType == MidiEventType.NoteOn)
-					++count;
-			}
-			return count;
-		}
-		//
-		// Summary:
-		//     Try to find the instrument in existing meta events in the provided track.
-		public static bool FindInstrument(this MidiTrack track, out Instrument instrument)
-		{
-			foreach (MidiEvent midiEvent in track.MidiEvents)
-			{
-				if (midiEvent.Time > 0)
-					break;
-
-				if (midiEvent.MidiEventType == MidiEventType.ProgramChange)
-				{
-					instrument = (Midi.Instrument)midiEvent.Arg2;
-					return true;
-				}
-			}
-			instrument = default;
-			return false;
-		}
-		//
-		// Summary:
-		//     Try to find the instrument in existing meta events in the provided track.
-		//     Returns specified default value if no program change meta events are found.
-		public static string FindInstrumentName(this MidiTrack track, string defaultValue = "Unknown")
-		{
-			return FindInstrument(track, out Instrument instrument) ?
-				instrument.Name() :
-				defaultValue;
-		}
-		//
-		// Summary:
-		//     Returns the duration of the specified track in seconds.
-		public static double ReadTrackDuration(this MidiFile midi, int track)
-		{
-			MidiTrack midiTrack = midi.Tracks[track];
-			int ticksDuration = ReadTrackDurationInTicks(midiTrack);
-			if (ticksDuration == 0)
-				return 0;
-
-			int bpm = midi.ReadBPM();
-			double durationSeconds = TicksToTime(ticksDuration, bpm, midi.TicksPerQuarterNote);
-			return durationSeconds;
-		}
-		//
-		// Summary:
-		//     Returns the time in seconds at which the first event occurs or -1 if none.
-		public static double ReadFirstNoteInSeconds(this MidiFile midi, int track)
-		{
-			int firstNoteInTicks = ReadFirstNoteInTicks(midi.Tracks[track]);
-			if (firstNoteInTicks == -1)
-				return -1;
-
-			int bpm = midi.ReadBPM();
-			double startInSeconds = TicksToTime(firstNoteInTicks, bpm, midi.TicksPerQuarterNote);
-			return startInSeconds;
-		}
-		//
-		// Summary:
-		//     Returns the time in seconds at which the first event occurs or -1 if none.
-		public static Instrument? FindInstrument(this MidiFile midi, int track)
-		{
-			return midi.Tracks[track].FindInstrument(out Instrument instrument) ?
-				instrument :
-				null;
-		}
-		//
-		// Summary:
-		//     Returns the number of notes in the specified track.
-		public static int ReadNoteCount(this MidiFile midi, int track)
-		{
-			return ReadNoteCount(midi.Tracks[track]);
-		}
-		//
-		// Summary:
-		//     Returns the longest duration of this file in seconds.
-		public static double ReadMaxTrackDuration(this MidiFile midi)
-		{
-			int maxTicks = 0;
-			for (int i = 0; i < midi.TracksCount; ++i)
-			{
-				MidiTrack midiTrack = midi.Tracks[i];
-				int ticksDuration = ReadTrackDurationInTicks(midiTrack);
-				if (ticksDuration > maxTicks)
-					maxTicks = ticksDuration;
-			}
-
-			if (maxTicks == 0)
-				return 0;
-			int bpm = midi.ReadBPM();
-			double durationSeconds = TicksToTime(maxTicks, bpm, midi.TicksPerQuarterNote);
-			return durationSeconds;
-		}
-		//
-		// Summary:
-		//     Converts elapsed time in seconds to elapsed ticks.
-		//
-		// Parameters:
-		//   seconds: Time in (elapsed) seconds to convert to ticks.
-		//   bpm: Track beats per minute.
-		//   ticksPerQuaterNote: Track ticks per quarter note. (Defined in midi file)
-		public static long TimeToTicks(double seconds, int bpm, int ticksPerQuarterNote)
-		{
-			double secondsPerQuarterNote = 60.0 / (double)bpm;
-			return (long)(seconds * (ticksPerQuarterNote / secondsPerQuarterNote));
-		}
-		//
-		// Summary:
-		//     Converts elapsed ticks to elapsed time in seconds.
-		//
-		// Parameters:
-		//   ticks: Time in (elapsed) ticks to convert to seconds.
-		//   bpm: Track beats per minute.
-		//   ticksPerQuaterNote: Track ticks per quarter note. (Defined in midi file)
-		public static double TicksToTime(long ticks, int bpm, int ticksPerQuaterNote)
-		{
-			double secondsPerQuarterNote = 60.0 / (double)bpm;
-			return ticks * (secondsPerQuarterNote / ticksPerQuaterNote);
-		}
-	}
+  public static string GetInstrumentName(byte programNumber)
+  {
+    string[] strArray = new string[128 /*0x80*/]
+    {
+      "Acoustic Grand Piano",
+      "Bright Acoustic Piano",
+      "Electric Grand Piano",
+      "Honky-tonk Piano",
+      "Electric Piano 1",
+      "Electric Piano 2",
+      "Harpsichord",
+      "Clavinet",
+      "Celesta",
+      "Glockenspiel",
+      "Music Box",
+      "Vibraphone",
+      "Marimba",
+      "Xylophone",
+      "Tubular Bells",
+      "Dulcimer",
+      "Drawbar Organ",
+      "Percussive Organ",
+      "Rock Organ",
+      "Church Organ",
+      "Reed Organ",
+      "Accordion",
+      "Harmonica",
+      "Tango Accordion",
+      "Acoustic Guitar (nylon)",
+      "Acoustic Guitar (steel)",
+      "Electric Guitar (jazz)",
+      "Electric Guitar (clean)",
+      "Electric Guitar (muted)",
+      "Overdriven Guitar",
+      "Distortion Guitar",
+      "Guitar harmonics",
+      "Acoustic Bass",
+      "Electric Bass (finger)",
+      "Electric Bass (pick)",
+      "Fretless Bass",
+      "Slap Bass 1",
+      "Slap Bass 2",
+      "Synth Bass 1",
+      "Synth Bass 2",
+      "Violin",
+      "Viola",
+      "Cello",
+      "Contrabass",
+      "Tremolo Strings",
+      "Pizzicato Strings",
+      "Orchestral Harp",
+      "Timpani",
+      "String Ensemble 1",
+      "String Ensemble 2",
+      "SynthStrings 1",
+      "SynthStrings 2",
+      "Choir Aahs",
+      "Voice Oohs",
+      "Synth Voice",
+      "Orchestra Hit",
+      "Trumpet",
+      "Trombone",
+      "Tuba",
+      "Muted Trumpet",
+      "French Horn",
+      "Brass Section",
+      "SynthBrass 1",
+      "SynthBrass 2",
+      "Soprano Sax",
+      "Alto Sax",
+      "Tenor Sax",
+      "Baritone Sax",
+      "Oboe",
+      "English Horn",
+      "Bassoon",
+      "Clarinet",
+      "Piccolo",
+      "Flute",
+      "Recorder",
+      "Pan Flute",
+      "Blown Bottle",
+      "Shakuhachi",
+      "Whistle",
+      "Ocarina",
+      "Lead 1 (square)",
+      "Lead 2 (sawtooth)",
+      "Lead 3 (calliope)",
+      "Lead 4 (chiff)",
+      "Lead 5 (charang)",
+      "Lead 6 (voice)",
+      "Lead 7 (fifths)",
+      "Lead 8 (bass+lead)",
+      "Pad 1 (new age)",
+      "Pad 2 (warm)",
+      "Pad 3 (polysynth)",
+      "Pad 4 (choir)",
+      "Pad 5 (bowed)",
+      "Pad 6 (metallic)",
+      "Pad 7 (halo)",
+      "Pad 8 (sweep)",
+      "FX 1 (rain)",
+      "FX 2 (soundtrack)",
+      "FX 3 (crystal)",
+      "FX 4 (atmosphere)",
+      "FX 5 (brightness)",
+      "FX 6 (goblins)",
+      "FX 7 (echoes)",
+      "FX 8 (sci-fi)",
+      "Sitar",
+      "Banjo",
+      "Shamisen",
+      "Koto",
+      "Kalimba",
+      "Bag pipe",
+      "Fiddle",
+      "Shanai",
+      "Tinkle Bell",
+      "Agogo",
+      "Steel Drums",
+      "Woodblock",
+      "Taiko Drum",
+      "Melodic Tom",
+      "Synth Drum",
+      "Reverse Cymbal",
+      "Guitar Fret Noise",
+      "Breath Noise",
+      "Seashore",
+      "Bird Tweet",
+      "Telephone Ring",
+      "Helicopter",
+      "Applause",
+      "Gunshot"
+    };
+    return programNumber >= (byte) 0 && (int) programNumber < strArray.Length ? strArray[(int) programNumber] : "Unknown";
+  }
 }

@@ -1,94 +1,79 @@
-﻿using System;
+﻿// Decompiled with JetBrains decompiler
+// Type: Instruments.Core.InstrumentModSettings
+// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
+// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
+
+using System;
+using System.Diagnostics;
 using System.IO;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 
-namespace Instruments.Core
+#nullable disable
+namespace VSInstrumentsBase.src.Core;
+
+public class InstrumentModSettings
 {
-	public class InstrumentModSettings
-	{
-		//
-		// Summary:
-		//     The settings instance. Only exists after loaded!
-		private static InstrumentModSettings _instance;
+  private static InstrumentModSettings _instance;
 
+  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+  public bool Enabled { get; set; } = true;
 
-		public bool enabled { get; set; } = true;
-		public float playerVolume { get; set; } = 0.7f;
-		public float blockVolume { get; set; } = 1.0f;
-		public int abcBufferSize { get; set; } = 32;
+  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+  public float PlayerVolume { get; set; } = 0.7f;
 
-		[Obsolete("Abc is no longer supported!")]
-		public string abcLocalLocation { get; set; } = Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar + "abc";
+  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+  public float BlockVolume { get; set; } = 1f;
 
-		[Obsolete("Abc is no longer supported!")]
-		public string abcServerLocation { get; set; } = Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar + "abc_server";
+  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+  public string LocalSongsDirectory { get; set; } = Path.Combine(GamePaths.DataPath, "Songs");
 
-		//
-		// Summary:
-		//     Local fully qualified path to the directory which local (user) songs are stored in.
-		//     For the client this represents the directory with songs that are only known to that user, i.e.
-		//     all the local songs. In previous versions of the mod this would typically point to the game
-		//     directory to the 'abc' subfolder.
-		public string LocalSongsDirectory { get; set; } = Path.Combine(Directory.GetCurrentDirectory(), "Songs");
-		//
-		// Summary:
-		//     Local fully qualified path to the directory in which shared, per-server or per-client songs are stored in.
-		//     This is an addition in later versions of the mod that allows caching user content instead of re-sending it
-		//     on each playback request.
-		public string DataSongsDirectory { get; set; } = Path.Combine(GamePaths.DataPath, "Songs");
-		//
-		// Summary:
-		//     Ensures that the provided directory exists or creates one if there is none.
-		protected static void EnsureDirectoryExists(string path)
-		{
-			if (string.IsNullOrEmpty(path))
-				throw new ArgumentNullException();
+  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+  public string DataSongsDirectory { get; set; } = Path.Combine(GamePaths.DataPath, "Songs");
 
-			if (!Directory.Exists(path))
-			{
-				Directory.CreateDirectory(path);
-			}
-		}
-		//
-		// Summary:
-		//     Loads the mod configuration, or creates default configuration if no mod settings are present.
-		public static void Load(ICoreAPI api)
-		{
-			// Load settings file
-			try
-			{
-				InstrumentModSettings instance = api.LoadModConfig<InstrumentModSettings>("instruments.json");
-				if (instance == null)
-				{
-					instance = new InstrumentModSettings();
-					api.StoreModConfig(instance, "instruments.json");
-				}
+  protected static void EnsureDirectoryExists(string path)
+  {
+    if (string.IsNullOrEmpty(path))
+      throw new ArgumentNullException();
+    if (Directory.Exists(path))
+      return;
+    try
+    {
+      Directory.CreateDirectory(path);
+    }
+    catch (Exception ex)
+    {
+      throw new InvalidOperationException($"Failed to create directory '{path}': {ex.Message}");
+    }
+  }
 
-				EnsureDirectoryExists(instance.LocalSongsDirectory);
-				EnsureDirectoryExists(instance.DataSongsDirectory);
+  public static void Load(ICoreAPI api)
+  {
+    try
+    {
+      InstrumentModSettings instrumentModSettings =  api.LoadModConfig<InstrumentModSettings>("instruments.json");
+      if (instrumentModSettings == null)
+      {
+        instrumentModSettings = new InstrumentModSettings();
+         api.StoreModConfig(instrumentModSettings, "instruments.json");
+      }
+            EnsureDirectoryExists(instrumentModSettings.LocalSongsDirectory);
+            EnsureDirectoryExists(instrumentModSettings.DataSongsDirectory);
+            _instance = instrumentModSettings;
+    }
+    catch (Exception ex)
+    {
+      api.Logger.Error("Could not load instruments config, using default values...");
+            _instance = new InstrumentModSettings();
+    }
+  }
 
-				_instance = instance;
-			}
-			catch (Exception)
-			{
-				api.Logger.Error("Could not load instruments config, using default values...");
-				_instance = new InstrumentModSettings();
-			}
-		}
-
-		//
-		// Summary:
-		//     Returns the loaded instrument mod settings instance.
-		public static InstrumentModSettings Instance
-		{
-			get
-			{
-				if (_instance == null)
-					throw new Exception("Mod settings instance must be loaded before it may be used!");
-
-				return _instance;
-			}
-		}
-	}
+  public static InstrumentModSettings Instance
+  {
+    get
+    {
+      return _instance != null ? _instance : throw new Exception("Mod settings instance must be loaded before it may be used!");
+    }
+  }
 }

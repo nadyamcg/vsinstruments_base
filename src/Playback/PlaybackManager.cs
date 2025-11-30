@@ -1,113 +1,73 @@
-﻿using System.Collections.Generic;
-using Vintagestory.API.Common;
-using Instruments.Files;
+﻿// Decompiled with JetBrains decompiler
+// Type: Instruments.Playback.PlaybackManager
+// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
+// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
 
-namespace Instruments.Playback
+using System.Collections.Generic;
+using System.Diagnostics;
+using Vintagestory.API.Common;
+using VSInstrumentsBase.src.Files;
+
+#nullable disable
+namespace VSInstrumentsBase.src.Playback;
+
+public abstract class PlaybackManager
 {
-	//
-	// Summary:
-	//     Base class for managing songs playback.
-	public abstract class PlaybackManager
-	{
-		//
-		// Summary:
-		//     This class contains information about a single playback (and/or its state) for a given player.
-		protected abstract class PlaybackStateBase
-		{
-			//
-			// Summary:
-			//     The player this info represents ("belongs to").
-			public IPlayer Player { get; private set; }
-			//
-			// Summary:
-			//     Creates new playback info for the provided player.
-			public PlaybackStateBase(IPlayer player)
-			{
-				Player = player;
-			}
-			//
-			// Summary:
-			//     Returns the associated player's client ID.
-			public int ClientId
-			{
-				get
-				{
-					return Player.ClientId;
-				}
-			}
-			//
-			// Summary:
-			//     Returns whether the associated player is currently playing.
-			public abstract bool IsPlaying { get; }
-			//
-			// Summary:
-			//     Returns whether the associated player was playing, but is finished now.
-			public abstract bool IsFinished { get; }
-			//
-			// Summary:
-			//     Updates the state periodically.
-			public virtual void Update(float deltaTime) { }
-		}
-		//
-		// Summary:
-		//     Set containing information about player playback state per client id.
-		protected Dictionary<int, PlaybackStateBase> PlaybackStates { get; private set; }
-		//
-		// Summary:
-		//     Assigns the provided playback state for its associated client.
-		protected void AddPlaybackState<T>(T playbackInfo) where T : PlaybackStateBase
-		{
-			PlaybackStates.Add(playbackInfo.ClientId, playbackInfo);
-		}
-		//
-		// Summary:
-		//     Returns whether a playback state was already assigned to the provided client.
-		protected bool HasPlaybackState(int clientId)
-		{
-			return PlaybackStates.ContainsKey(clientId);
-		}
-		//
-		// Summary:
-		//     Removes and outputs the playback state for the provided client.
-		protected bool RemovePlaybackState<T>(int clientId, out T state) where T : PlaybackStateBase
-		{
-			if (PlaybackStates.Remove(clientId, out PlaybackStateBase baseState))
-			{
-				state = baseState as T;
-				return true;
-			}
-			state = default;
-			return false;
-		}
-		//
-		// Summary:
-		//     Finds the playback state for the provided client.
-		protected PlaybackStateBase GetPlaybackState(int clientId)
-		{
-			if (PlaybackStates.TryGetValue(clientId, out PlaybackStateBase state))
-			{
-				return state;
-			}
-			return null;
-		}
-		//
-		// Summary:
-		//     Creates new playback manager.
-		public PlaybackManager(ICoreAPI api, FileManager fileManager)
-		{
-			PlaybackStates = new Dictionary<int, PlaybackStateBase>(64);
-		}
-		//
-		// Summary:
-		//     Updates the playback manager. This method should be called periodically, on each game tick.
-		public virtual void Update(float deltaTime) { }
-		//
-		// Summary:
-		//     Returns whether the provided client is actively playing back.
-		public bool IsPlaying(int clientId)
-		{
-			PlaybackStateBase state = GetPlaybackState(clientId);
-			return state != null ? state.IsPlaying : false;
-		}
-	}
+  protected PlaybackManager(ICoreAPI api, FileManager fileManager)
+  {
+  }
+
+  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+  protected Dictionary<int, PlaybackManager.PlaybackStateBase> PlaybackStates { get; private set; } = new Dictionary<int, PlaybackManager.PlaybackStateBase>(64 /*0x40*/);
+
+  protected void AddPlaybackState<T>(T playbackInfo) where T : PlaybackManager.PlaybackStateBase
+  {
+    this.PlaybackStates.Add(playbackInfo.ClientId, (PlaybackManager.PlaybackStateBase) playbackInfo);
+  }
+
+  protected bool HasPlaybackState(int clientId) => this.PlaybackStates.ContainsKey(clientId);
+
+  protected bool RemovePlaybackState<T>(int clientId, out T state) where T : PlaybackManager.PlaybackStateBase
+  {
+    if (this.PlaybackStates.Remove(clientId, out PlaybackManager.PlaybackStateBase playbackStateBase))
+    {
+      state = playbackStateBase as T;
+      return true;
+    }
+    state = default (T);
+    return false;
+  }
+
+  protected PlaybackManager.PlaybackStateBase GetPlaybackState(int clientId)
+  {
+    PlaybackManager.PlaybackStateBase playbackStateBase;
+    return this.PlaybackStates.TryGetValue(clientId, out playbackStateBase) ? playbackStateBase : (PlaybackManager.PlaybackStateBase) null;
+  }
+
+  public virtual void Update(float deltaTime)
+  {
+  }
+
+  public bool IsPlaying(int clientId)
+  {
+    PlaybackManager.PlaybackStateBase playbackState = this.GetPlaybackState(clientId);
+    return playbackState != null && playbackState.IsPlaying;
+  }
+
+  protected abstract class PlaybackStateBase(IPlayer player)
+  {
+    [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    public IPlayer Player { get; private set; } = player;
+
+    public int ClientId => this.Player.ClientId;
+
+    public abstract bool IsPlaying { get; }
+
+    public abstract bool IsFinished { get; }
+
+    public virtual void Update(float deltaTime)
+    {
+    }
+  }
 }

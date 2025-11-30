@@ -1,16 +1,16 @@
-﻿using ProtoBuf;
+﻿// Decompiled with JetBrains decompiler
+// Type: Instruments.Network.Playback.StartPlaybackDenyOwner
+// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
+// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
 
-namespace Instruments.Network.Playback
+using ProtoBuf;
+
+#nullable disable
+namespace VSInstrumentsBase.src.Network.Playback;
+
+[ProtoContract]
+public class StartPlaybackDenyOwner
 {
-	//
-	// Summary:
-	//     Response packet sent to the instigator (the requesting client) of the playback, when the playback gets denied.
-	[ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-	public class StartPlaybackDenyOwner
-	{
-		//
-		// Summary:
-		//     The reason why the playback was denied.
-		public DenyPlaybackReason Reason;
-	}
+  public DenyPlaybackReason Reason;
 }

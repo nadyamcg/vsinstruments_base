@@ -1,301 +1,168 @@
-﻿using System;
+﻿// Decompiled with JetBrains decompiler
+// Type: Instruments.Types.InstrumentType
+// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
+// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
+
+using VSInstrumentsBase.src.Mapping;
+using VSInstrumentsBase.src.Midi;
+using System;
 using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
-using Vintagestory.API.MathTools;
-using Midi;
-using Instruments.Mapping;
 
-namespace Instruments.Types
+#nullable disable
+namespace VSInstrumentsBase.src.Types;
+
+public abstract class InstrumentType(string name, string animation)
 {
-	//
-	// Summary:
-	//     This object decouples and implements sharing of static data and logic of unique item types.
-	//     This allows relevant data and logic to be accessed regardless of the actual item's lifetime.
-	//     See InstrumentTypeExtensions for convenience API extensions.
-	public abstract class InstrumentType
-	{
-		//
-		// Summary:
-		//     The interface to the game.
-		private ICoreAPI _api;
-		//
-		// Summary:
-		//     Unique identifier of this instrument type.
-		private int _id;
-		// Summary:
-		//     Name of the instrument as specified in the data, for example 'grandpiano'.
-		private string _name;
-		//
-		// Summary:
-		//     Name of the animation as specified in the data, for example 'holdbothhandslarge'.
-		private string _animation;
-		//
-		// Summary:
-		//     Default shared item type, generally used if no other item type is provided.
-		private NoteMapping<string> _noteMap;
-		//
-		// Summary:
-		//     Tool modes shared across all instances of this instrument type.
-		private SkillItem[] _toolModes;
-		//
-		// Summary:
-		//     Map of all instrument types by their unique identifier.
-		private static Dictionary<int, InstrumentType> _instrumentTypes;
-		//
-		// Summary:
-		//     Queue of types that are pending initialization.
-		private static Queue<InstrumentType> _initializationQueue;
-		//
-		// Summary:
-		//     Intializes static type properties.
-		static InstrumentType()
-		{
-			_instrumentTypes = new Dictionary<int, InstrumentType>();
-			_initializationQueue = new Queue<InstrumentType>();
-		}
-		//
-		// Summary:
-		//     Creates new type.
-		public InstrumentType(string name, string animation)
-		{
-			_name = name;
-			_animation = animation;
-		}
-		//
-		// Summary:
-		//     Registers and associates the provided class type with given instance type.
-		public static void Register(ICoreAPI api, Type instanceType, InstrumentType instrumentType)
-		{
-			int id = ComputeID(instanceType);
-			if (!_instrumentTypes.TryAdd(id, instrumentType))
-			{
-				// This instrument type is already registered. This may be legal when the application is
-				// running as both the server and the client.
-				return;
-			}
+  private ICoreAPI _api;
+  private int _id;
+  private NoteMapping<string> _noteMap;
+  private SkillItem[] _toolModes;
+  private static readonly Dictionary<int, InstrumentType> _instrumentTypes = new Dictionary<int, InstrumentType>();
+  private static readonly Queue<InstrumentType> _initializationQueue = new Queue<InstrumentType>();
 
-			instrumentType._api = api;
-			instrumentType._id = id;
+  public static void Register(ICoreAPI api, Type instanceType, InstrumentType instrumentType)
+  {
+    int id = InstrumentType.ComputeID(instanceType);
+    if (!InstrumentType._instrumentTypes.TryAdd(id, instrumentType))
+      return;
+    instrumentType._api = api;
+    instrumentType._id = id;
+    InstrumentType._initializationQueue.Enqueue(instrumentType);
+  }
 
-			// Insert the newly registered type into the queue for pending initialization,
-			// the initialization will need to happen only after assets are loaded.
-			_initializationQueue.Enqueue(instrumentType);
-		}
-		//
-		// Summary:
-		//     Initialize all types that are pending initialization.
-		public static void InitializeTypes()
-		{
-			while (_initializationQueue.Count > 0)
-			{
-				InstrumentType type = _initializationQueue.Dequeue();
-				type.Initialize();
-			}
-		}
-		//
-		// Summary:
-		//     Cleans up all registered types.
-		public static void UnregisterAll()
-		{
-			InstrumentType[] allTypes = new InstrumentType[_instrumentTypes.Count];
-			for (int i = 0; i < allTypes.Length; ++i)
-			{
-				InstrumentType type = allTypes[i];
-				if (type != null && _instrumentTypes.Remove(type._id))
-					type.Cleanup();
-			}
-			_instrumentTypes.Clear();
-		}
-		//
-		// Summary:
-		//     Initialize the instrument type instance.
-		//     This occurs only after the item type and its associated instrument type are both registered.
-		//     Additionally initialization will only happen after assets are loaded.
-		protected virtual void Initialize()
-		{
-			_toolModes = new SkillItem[4];
-			_toolModes[(int)PlayMode.abc] = new SkillItem() { Code = new AssetLocation(PlayMode.abc.ToString()), Name = Lang.Get("ABC Mode") };
-			_toolModes[(int)PlayMode.fluid] = new SkillItem() { Code = new AssetLocation(PlayMode.fluid.ToString()), Name = Lang.Get("Fluid Play") };
-			_toolModes[(int)PlayMode.lockedSemiTone] = new SkillItem() { Code = new AssetLocation(PlayMode.lockedSemiTone.ToString()), Name = Lang.Get("Locked Play: Semi Tone") };
-			_toolModes[(int)PlayMode.lockedTone] = new SkillItem() { Code = new AssetLocation(PlayMode.lockedTone.ToString()), Name = Lang.Get("Locked Play: Tone") };
+  public static void InitializeTypes()
+  {
+    while (InstrumentType._initializationQueue.Count > 0)
+      InstrumentType._initializationQueue.Dequeue().Initialize();
+  }
 
-			if (Api is ICoreClientAPI capi)
-			{
-				_toolModes[(int)PlayMode.abc].WithIcon(capi, capi.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/abc.svg"), 48, 48, 5, ColorUtil.WhiteArgb));
-				_toolModes[(int)PlayMode.abc].TexturePremultipliedAlpha = false;
-				_toolModes[(int)PlayMode.fluid].WithIcon(capi, capi.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/3.svg"), 48, 48, 5, ColorUtil.WhiteArgb));
-				_toolModes[(int)PlayMode.fluid].TexturePremultipliedAlpha = false;
-				_toolModes[(int)PlayMode.lockedSemiTone].WithIcon(capi, capi.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/2.svg"), 48, 48, 5, ColorUtil.WhiteArgb));
-				_toolModes[(int)PlayMode.lockedSemiTone].TexturePremultipliedAlpha = false;
-				_toolModes[(int)PlayMode.lockedTone].WithIcon(capi, capi.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/1.svg"), 48, 48, 5, ColorUtil.WhiteArgb));
-				_toolModes[(int)PlayMode.lockedTone].TexturePremultipliedAlpha = false;
-			}
+  public static void UnregisterAll()
+  {
+    foreach (InstrumentType instrumentType in new InstrumentType[InstrumentType._instrumentTypes.Count])
+    {
+      if (instrumentType != null && InstrumentType._instrumentTypes.Remove(instrumentType._id))
+        instrumentType.Cleanup();
+    }
+    InstrumentType._instrumentTypes.Clear();
+  }
 
-			_noteMap = new NoteMappingLegacy(string.Concat("sounds/", Name));
-		}
-		//
-		// Summary:
-		//     Unregister this type.
-		internal static void UnregisterType(Type instanceType)
-		{
-			int typeID = ComputeID(instanceType);
-			if (_instrumentTypes.Remove(typeID, out InstrumentType type))
-			{
-				type.Cleanup();
-			}
-		}
-		//
-		// Summary:
-		//     Releases any resources held by this type.
-		protected virtual void Cleanup()
-		{
-			foreach (SkillItem toolMode in _toolModes)
-				toolMode.Dispose();
-			Array.Clear(_toolModes);
-			_toolModes = null;
-		}
-		//
-		// Summary:
-		//     Returns the game api, available on the client and the server.
-		public ICoreAPI Api
-		{
-			get
-			{
-				return _api;
-			}
-		}
+  protected virtual void Initialize()
+  {
+    this._toolModes = new SkillItem[4];
+    this._toolModes[3] = new SkillItem()
+    {
+      Code = new AssetLocation(PlayMode.midi.ToString()),
+      Name = Lang.Get("MIDI Mode", Array.Empty<object>())
+    };
+    this._toolModes[2] = new SkillItem()
+    {
+      Code = new AssetLocation(PlayMode.fluid.ToString()),
+      Name = Lang.Get("Fluid Play", Array.Empty<object>())
+    };
+    this._toolModes[1] = new SkillItem()
+    {
+      Code = new AssetLocation(PlayMode.lockedSemiTone.ToString()),
+      Name = Lang.Get("Locked Play: Semi Tone", Array.Empty<object>())
+    };
+    this._toolModes[0] = new SkillItem()
+    {
+      Code = new AssetLocation(PlayMode.lockedTone.ToString()),
+      Name = Lang.Get("Locked Play: Tone", Array.Empty<object>())
+    };
+    if (this.Api is ICoreClientAPI api)
+    {
+      this._toolModes[3].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/3.svg"), 48 /*0x30*/, 48 /*0x30*/, 5, new int?(-1)));
+      this._toolModes[3].TexturePremultipliedAlpha = false;
+      this._toolModes[2].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/3.svg"), 48 /*0x30*/, 48 /*0x30*/, 5, new int?(-1)));
+      this._toolModes[2].TexturePremultipliedAlpha = false;
+      this._toolModes[1].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/2.svg"), 48 /*0x30*/, 48 /*0x30*/, 5, new int?(-1)));
+      this._toolModes[1].TexturePremultipliedAlpha = false;
+      this._toolModes[0].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/1.svg"), 48 /*0x30*/, 48 /*0x30*/, 5, new int?(-1)));
+      this._toolModes[0].TexturePremultipliedAlpha = false;
+    }
+    this._noteMap = (NoteMapping<string>) new NoteMappingLegacy("sounds/" + this.Name);
+  }
 
-		//
-		// Summary:
-		//     Returns the unique identifier of this instrument that can be used as a substitute for its name.
-		public int ID
-		{
-			get
-			{
-				return _id;
-			}
-		}
-		//
-		// Summary:
-		//     Returns the name of this instrument, as defined in data.
-		public string Name
-		{
-			get
-			{
-				return _name;
-			}
-		}
-		//
-		// Summary:
-		//     Returns the name of the animation used by this instrument, as defined in data.
-		public string Animation
-		{
-			get
-			{
-				return _animation;
-			}
-		}
-		//
-		// Summary:
-		//     Returns the note mapping for this instrument type.
-		public NoteMapping<string> NoteMap
-		{
-			get
-			{
-				return _noteMap;
-			}
-		}
-		//
-		// Summary:
-		//     Returns the tool modes for this instrument type.
-		public SkillItem[] ToolModes
-		{
-			get
-			{
-				return _toolModes;
-			}
-		}
-		//
-		// Summary:
-		//     Returns sound data of this instrument for the provided pitch.
-		//
-		// Parameters:
-		//   pitch: Input pitch the sound should represent.
-		//   assetPath: Outputs the path to the desired sound sample.
-		//   modPitch: Outputs the pitch the sound sample should play at.
-		public virtual bool GetPitchSound(Pitch pitch, out string assetPath, out float modPitch)
-		{
-			assetPath = NoteMap.GetValue(pitch);
-			if (string.IsNullOrEmpty(assetPath))
-			{
-				modPitch = 1;
-				return false;
-			}
+  internal static void UnregisterType(Type instanceType)
+  {
+    int id = InstrumentType.ComputeID(instanceType);
+    if (!InstrumentType._instrumentTypes.Remove(id, out InstrumentType instrumentType))
+      return;
+    instrumentType.Cleanup();
+  }
 
-			modPitch = NoteMap.GetRelativePitch(pitch);
-			return true;
-		}
-		//
-		// Summary:
-		//     Finds the instrument item type by its unique identifier.
-		internal static InstrumentType Find(int id)
-		{
-			if (_instrumentTypes.TryGetValue(id, out InstrumentType type))
-				return type;
+  protected virtual void Cleanup()
+  {
+    foreach (SkillItem toolMode in this._toolModes)
+      toolMode.Dispose();
+    Array.Clear((Array) this._toolModes);
+    this._toolModes = (SkillItem[]) null;
+  }
 
-			return null;
-		}
-		//
-		// Summary:
-		//     Finds the instrument item type by its instance type.
-		// Parameters:
-		//   instanceType: The type of the instrument instance.
-		internal static InstrumentType Find(Type instanceType)
-		{
-			int typeID = ComputeID(instanceType);
-			return Find(typeID);
-		}
-		//
-		// Summary:
-		//     Returns unique identifier for provided type.
-		private static int ComputeID(Type type)
-		{
-			return type.FullName.GetHashCode();
-		}
-		//
-		// Summary:
-		//     Finds all instruments with the provided name.
-		//     This method is considered slow and should only be used in rare scenarios.
-		internal static void Find(string name, List<InstrumentType> destination, StringComparison comparison = StringComparison.OrdinalIgnoreCase)
-		{
-			foreach (var kvp in _instrumentTypes)
-			{
-				InstrumentType instrumentType = kvp.Value;
-				if (string.Compare(name, instrumentType.Name, comparison) == 0)
-					destination.Add(instrumentType);
-			}
-		}
-	}
-	//
-	// Summary:
-	//     This class provides convenience and utility extensions for instrument types.
-	public static class InstrumentTypeExtensions
-	{
-		//
-		// Summary:
-		//     Registers the provided instrument item into the game API and registers the
-		//     provided instrument type as its associated instrument type.
-		//
-		// Parameters:
-		//   api: Game API
-		//   itemType: Instrument instance type.
-		//   instrumentType: Instrument type instance.
-		public static void RegisterInstrumentItem(this ICoreAPI api, Type itemType, InstrumentType instrumentType)
-		{
-			api.RegisterItemClass(instrumentType.Name, itemType);
-			InstrumentType.Register(api, itemType, instrumentType);
-		}
-	}
+  public ICoreAPI Api => this._api;
+
+  public int ID => this._id;
+
+  public string Name => name;
+
+  public string Animation => animation;
+
+  public NoteMapping<string> NoteMap => this._noteMap;
+
+  public SkillItem[] ToolModes => this._toolModes;
+
+  public virtual bool GetPitchSound(Pitch pitch, out string assetPath, out float modPitch)
+  {
+    assetPath = this.NoteMap.GetValue(pitch);
+    if (string.IsNullOrEmpty(assetPath))
+    {
+      modPitch = 1f;
+      return false;
+    }
+    modPitch = this.NoteMap.GetRelativePitch(pitch);
+    return true;
+  }
+
+  internal static InstrumentType Find(int id)
+  {
+    InstrumentType instrumentType;
+    return InstrumentType._instrumentTypes.TryGetValue(id, out instrumentType) ? instrumentType : (InstrumentType) null;
+  }
+
+  internal static InstrumentType Find(Type instanceType)
+  {
+    return InstrumentType.Find(InstrumentType.ComputeID(instanceType));
+  }
+
+  internal static InstrumentType Find(string name)
+  {
+    if (string.IsNullOrEmpty(name))
+      return (InstrumentType) null;
+    foreach (KeyValuePair<int, InstrumentType> instrumentType1 in InstrumentType._instrumentTypes)
+    {
+      InstrumentType instrumentType2 = instrumentType1.Value;
+      if (string.Compare(name, instrumentType2.Name, StringComparison.OrdinalIgnoreCase) == 0)
+        return instrumentType2;
+    }
+    return (InstrumentType) null;
+  }
+
+  private static int ComputeID(Type type) => type.FullName.GetHashCode();
+
+  internal static void Find(
+    string name,
+    List<InstrumentType> destination,
+    StringComparison comparison = StringComparison.OrdinalIgnoreCase)
+  {
+    foreach (KeyValuePair<int, InstrumentType> instrumentType1 in InstrumentType._instrumentTypes)
+    {
+      InstrumentType instrumentType2 = instrumentType1.Value;
+      if (string.Compare(name, instrumentType2.Name, comparison) == 0)
+        destination.Add(instrumentType2);
+    }
+  }
 }
