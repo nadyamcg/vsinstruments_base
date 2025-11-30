@@ -68,23 +68,24 @@
 </ItemGroup>
 
 <ItemGroup>
-  <PackageReference Include="Melanchall.DryWetMidi" Version="8.0.2" />
+  <PackageReference Include="Melanchall.DryWetMidi" Version="8.0.2" PrivateAssets="all" />
 </ItemGroup>
 
-<!-- copy DryWetMidi managed DLL and remove native DLLs -->
+<!-- copy managed DLL and remove native DLLs -->
 <Target Name="AfterBuild" AfterTargets="Build">
-  <!-- copy managed DryWetMidi DLL -->
   <ItemGroup>
-    <DryWetMidiDll Include="$(NuGetPackageRoot)melanchall.drywetmidi\8.0.2\lib\netstandard2.0\Melanchall.DryWetMidi.dll" />
+    <DryWetMidiManaged Include="$(NuGetPackageRoot)melanchall.drywetmidi/8.0.2/lib/netstandard2.0/Melanchall.DryWetMidi.dll" />
   </ItemGroup>
-  <Copy SourceFiles="@(DryWetMidiDll)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  <Copy SourceFiles="@(DryWetMidiManaged)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  <Message Text="Copied DryWetMidi managed DLL" Importance="high" />
+</Target>
 
-  <!-- remove native DLLs to prevent "Bad IL format" errors in Vintage Story -->
-  <ItemGroup>
-    <NativeDllsToRemove Include="$(OutputPath)\Melanchall_DryWetMidi_Native*.dll" />
-    <NativeDllsToRemove Include="$(OutputPath)\Melanchall_DryWetMidi_Native*.dylib" />
-  </ItemGroup>
-  <Delete Files="@(NativeDllsToRemove)" />
+<!-- remove native DLLs to prevent "Bad IL format" errors -->
+<Target Name="RemoveNativeDlls" AfterTargets="CopyDryWetMidi">
+  <Delete Files="$(OutputPath)Melanchall_DryWetMidi_Native32.dll" />
+  <Delete Files="$(OutputPath)Melanchall_DryWetMidi_Native64.dll" />
+  <Delete Files="$(OutputPath)Melanchall_DryWetMidi_Native64.dylib" />
+  <Message Text="Removed DryWetMidi native DLLs from output" Importance="high" />
 </Target>
 
 </Project>
