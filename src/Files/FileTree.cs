@@ -135,7 +135,8 @@ public class FileTree : IDisposable
       string directoryName = Path.GetDirectoryName(fullPath);
       if (!Directory.Exists(directoryName))
         Directory.CreateDirectory(directoryName);
-            using FileStream file = new (fullPath, (FileMode)2);
+      // caller is responsible for disposing the stream
+      FileStream file = new(fullPath, FileMode.Create);
             createNodeRecursive(fullPath);
             return file;
         }
