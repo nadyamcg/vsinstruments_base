@@ -104,6 +104,7 @@ public class SongSelectGUI : GuiDialog
     this._fileTree = instrumentMod.FileManager.UserTree;
     this._fileSelectionCallback = onFileSelect;
     this._fileTree.NodeChanged += new FileTree.NodeChange(this.OnNodeChanged);
+    this._fileTree.NodeCreated += new FileTree.NodeChange(this.OnNodeCreated);
     this._treeNodes = [];
     this._contentNodes = [];
     this._previewMusicPlayer = (MidiPlayerBase) new MidiPlayer((ICoreAPI) capi, (IPlayer) capi.World.Player, instrumentType);
