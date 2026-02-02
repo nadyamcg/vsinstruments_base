@@ -120,6 +120,22 @@ public class SongSelectGUI : GuiDialog
     this.RefreshContent(refreshContent: true, refreshDetails: true);
   }
 
+  protected void OnNodeCreated(FileTree.Node node)
+  {
+    if (node == null) return;
+
+    if (!node.IsDirectory)
+    {
+      string ext = Path.GetExtension(node.Name).ToLowerInvariant();
+      if (ext == ".mid" || ext == ".midi")
+        this.RefreshContent(refreshTree: true, refreshContent: true, refreshDetails: false);
+    }
+    else
+    {
+      this.RefreshContent(refreshTree: true, refreshContent: false, refreshDetails: false);
+    }
+  }
+
   private void SetupSelection()
   {
     List<FileTree.Node> destination = [];
