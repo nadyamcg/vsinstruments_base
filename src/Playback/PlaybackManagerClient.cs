@@ -95,7 +95,15 @@ public class PlaybackManagerClient : PlaybackManager
 
   protected void OnStartPlaybackOwner(StartPlaybackOwner packet)
   {
-    this.StartPlayback(((IPlayer) this.ClientAPI.World.Player).ClientId, this.ClientFileManager.UserTree.Find(packet.File), packet.Channel, packet.Instrument);
+    var node = this.ClientFileManager.UserTree.Find(packet.File);
+    if (node == null)
+    {
+      Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient",
+        $"file not found in tree: '{packet.File}'");
+      this.ShowPlaybackErrorMessage($"Could not find file: {Path.GetFileName(packet.File)}");
+      return;
+    }
+    this.StartPlayback(((IPlayer)this.ClientAPI.World.Player).ClientId, node, packet.Channel, packet.Instrument);
     this.ShowPlaybackNotification($"Playing track #{packet.Channel:00} of {Path.GetFileNameWithoutExtension(packet.File)}.");
   }
 
@@ -111,17 +119,35 @@ public class PlaybackManagerClient : PlaybackManager
     int instrumentTypeId,
     double startTimeSec = 0.0)
   {
+    if (node == null)
+    {
+      Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient",
+        $"StartPlayback called with null node for clientId={clientId}");
+      this.ShowPlaybackErrorMessage("Failed to locate MIDI file.");
+      return;
+    }
+
     try
     {
       PlaybackManagerClient.PlaybackStateClient playbackState = this.GetPlaybackState(clientId) as PlaybackManagerClient.PlaybackStateClient;
-      MidiFile midi = MidiFile.Read(node.FullPath, (ReadingSettings) null);
+      if (playbackState == null)
+      {
+        Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient",
+          $"PlaybackState is null for clientId={clientId}");
+        this.ShowPlaybackErrorMessage("Player state not found.");
+        return;
+      }
+
+      MidiFile midi = MidiFile.Read(node.FullPath, (ReadingSettings)null);
       InstrumentType instrumentType = InstrumentType.Find(instrumentTypeId);
-      ((ICoreAPI) this.ClientAPI).Logger.Notification($"[PlaybackManagerClient] Starting playback: clientId={clientId}, file={node.Name}, instrument={instrumentType?.Name ?? "unknown"}");
+      Log.Notification((ICoreAPI)this.ClientAPI, "PlaybackManagerClient",
+        $"Starting playback: clientId={clientId}, file={node.Name}, instrument={instrumentType?.Name ?? "unknown"}");
       playbackState.StartPlayback(midi, instrumentType, channel, startTimeSec);
     }
-    catch
+    catch (Exception ex)
     {
-      this.ShowPlaybackErrorMessage("An internal error occured.");
+      Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient", "StartPlayback failed", ex);
+      this.ShowPlaybackErrorMessage($"Playback error: {ex.Message}");
     }
   }
 
