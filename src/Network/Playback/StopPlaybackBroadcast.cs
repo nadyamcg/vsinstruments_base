@@ -1,17 +1,20 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Network.Playback.StopPlaybackBroadcast
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
+﻿using ProtoBuf;
 
-using ProtoBuf;
-
-#nullable disable
-namespace VSInstrumentsBase.src.Network.Playback;
-
-[ProtoContract]
-public class StopPlaybackBroadcast
+namespace VSInstrumentsBase.src.Network.Playback
 {
-  public int ClientId;
-  public StopPlaybackReason Reason;
+	//
+	// Summary:
+	//     Response packet broadcast to all clients from the server to stop a playback.
+	[ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
+	public class StopPlaybackBroadcast
+	{
+		//
+		// Summary:
+		//     Id of the player of which the playback is about to stop.
+		public int ClientId;
+		//
+		// Summary:
+		//     Determines the reason for why the playback was stopped.
+		public StopPlaybackReason Reason;
+	}
 }

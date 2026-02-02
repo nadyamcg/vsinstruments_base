@@ -1,13 +1,7 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Midi.Note
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using System;
 using System.Diagnostics;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Midi;
 
 public struct Note(char letter, int accidental)
@@ -22,29 +16,16 @@ public struct Note(char letter, int accidental)
   [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
   public int Accidental { get; } = accidental;
 
-  public override string ToString()
+  public override readonly string ToString()
   {
     int accidental = this.Accidental;
-    if (true)
-      ;
-    string str;
-    switch (accidental)
+    string str = accidental switch
     {
-      case -1:
-        str = "b";
-        break;
-      case 0:
-        str = "";
-        break;
-      case 1:
-        str = "#";
-        break;
-      default:
-        str = "";
-        break;
-    }
-    if (true)
-      ;
+      -1 => "b",
+      0 => "",
+      1 => "#",
+      _ => "",
+    };
     return $"{this.Letter}{str}";
   }
 
@@ -60,23 +41,12 @@ public struct Note(char letter, int accidental)
     if (position < noteStr.Length)
     {
       char ch = noteStr[position];
-      if (true)
-        ;
-      int num;
-      switch (ch)
+      var num = ch switch
       {
-        case '#':
-          num = 1;
-          break;
-        case 'b':
-          num = -1;
-          break;
-        default:
-          num = 0;
-          break;
-      }
-      if (true)
-        ;
+        '#' => 1,
+        'b' => -1,
+        _ => 0,
+      };
       accidental = num;
       if (accidental != 0)
         ++position;

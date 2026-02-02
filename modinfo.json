@@ -1,13 +1,14 @@
 {
     "type": "code",
     "modid": "vsinstrumentsbase",
-    "name": "VSInstruments Base",
+    "name": "VSInstruments Base (MIDI Fork)",
     "authors": [
         "Quacksol", 
-        "_ex0_"
+        "_ex0_",
+        "nadyamcg"
     ],
-    "description": "Base for the instruments mod",
-    "version": "3.0.0",
+    "description": "Base for the instruments mod, MIDI fork. Instrument pack included for debugging purposes. Early build!",
+    "version": "4.0.0",
     "dependencies": {
         "game": "1.21.5"
     }

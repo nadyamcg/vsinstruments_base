@@ -1,16 +1,10 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.GUI.GuiExtensions
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using System;
 using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.GUI;
 
 internal static class GuiExtensions

@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.GUI.SongSelectGUI
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.Files;
 using VSInstrumentsBase.src.Playback;
 using VSInstrumentsBase.src.Players;
@@ -20,7 +14,7 @@ using Vintagestory.API.Common;
 using Vintagestory.GameContent;
 using VSInstrumentsBase.src.Core;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.GUI;
 
 public class SongSelectGUI : GuiDialog
@@ -35,6 +29,7 @@ public class SongSelectGUI : GuiDialog
   private readonly InstrumentType _instrumentType;
   private int _activeTrack = -1;
   private readonly Action<string, string> _fileSelectionCallback;
+  private readonly bool _initializationFailed = false;
 
   public override string ToggleKeyCombinationCode => null;
 
@@ -90,23 +85,28 @@ public class SongSelectGUI : GuiDialog
     Action<string, string> onFileSelect = null)
     : base(capi)
   {
+    ((ICoreAPI) capi).Logger.Notification("[SongSelectGUI] Constructor entered");
+    ((ICoreAPI) capi).Logger.Notification("[SongSelectGUI] About to call GetInstrumentMod()");
     InstrumentModClient instrumentMod = capi.GetInstrumentMod();
     if (instrumentMod == null)
     {
-      ((ICoreAPI) capi).Logger.Error("[SongSelectGUI] CRITICAL: InstrumentMod is null! Mod system not loaded properly.");
-      throw new InvalidOperationException("InstrumentMod not found! The mod system failed to initialize. Check logs for errors during mod startup.");
+      ((ICoreAPI) capi).Logger.Error("[SongSelectGUI] CRITICAL: InstrumentMod is null! Mod system not loaded properly. Cannot open GUI.");
+      _initializationFailed = true;
+      return;
     }
     ((ICoreAPI) capi).Logger.Debug("[SongSelectGUI] InstrumentMod found: " + ((object) instrumentMod).GetType().Name);
     if (instrumentMod.FileManager == null)
     {
-      ((ICoreAPI) capi).Logger.Error("[SongSelectGUI] CRITICAL: FileManager is null!");
-      throw new InvalidOperationException("FileManager not initialized!");
+      ((ICoreAPI) capi).Logger.Error("[SongSelectGUI] CRITICAL: FileManager is null! Cannot open GUI.");
+      _initializationFailed = true;
+      return;
     }
     this._fileTree = instrumentMod.FileManager.UserTree;
     this._fileSelectionCallback = onFileSelect;
     this._fileTree.NodeChanged += new FileTree.NodeChange(this.OnNodeChanged);
-    this._treeNodes = new List<FileTree.Node>();
-    this._contentNodes = new List<FileTree.Node>();
+    this._fileTree.NodeCreated += new FileTree.NodeChange(this.OnNodeCreated);
+    this._treeNodes = [];
+    this._contentNodes = [];
     this._previewMusicPlayer = (MidiPlayerBase) new MidiPlayer((ICoreAPI) capi, (IPlayer) capi.World.Player, instrumentType);
     this._instrumentType = instrumentType;
     this.BandNameChange = bandChange;
@@ -121,9 +121,25 @@ public class SongSelectGUI : GuiDialog
     this.RefreshContent(refreshContent: true, refreshDetails: true);
   }
 
+  protected void OnNodeCreated(FileTree.Node node)
+  {
+    if (node == null) return;
+
+    if (!node.IsDirectory)
+    {
+      string ext = Path.GetExtension(node.Name).ToLowerInvariant();
+      if (ext == ".mid" || ext == ".midi")
+        this.RefreshContent(refreshTree: true, refreshContent: true, refreshDetails: false);
+    }
+    else
+    {
+      this.RefreshContent(refreshTree: true, refreshContent: false, refreshDetails: false);
+    }
+  }
+
   private void SetupSelection()
   {
-    List<FileTree.Node> destination = new List<FileTree.Node>();
+    List<FileTree.Node> destination = [];
     this._fileTree.GetNodes(destination, FileTree.Filter.Directories | FileTree.Filter.Files | FileTree.Filter.SelectedOnly);
     if (destination.Count > 0)
     {
@@ -146,15 +162,19 @@ public class SongSelectGUI : GuiDialog
       this.SelectTreeNode((FileTree.Node) this._fileTree.Root);
   }
 
-  public virtual void OnGuiOpened()
+  public override void OnGuiOpened()
   {
+    if (_initializationFailed)
+      return;
     base.OnGuiOpened();
     this.RefreshContent(refreshContent: true, refreshDetails: true);
     ((ICoreAPI) this.capi).Logger.Notification("[SongSelectGUI] GUI opened, refreshed file list");
   }
 
-  public virtual void OnGuiClosed()
+  public override void OnGuiClosed()
   {
+    if (_initializationFailed)
+      return;
     if (this._previewMusicPlayer != null)
     {
       if (this._previewMusicPlayer.IsPlaying || this._previewMusicPlayer.IsFinished)
@@ -163,6 +183,7 @@ public class SongSelectGUI : GuiDialog
       this._previewMusicPlayer = (MidiPlayerBase) null;
     }
     this._fileTree.NodeChanged -= new FileTree.NodeChange(this.OnNodeChanged);
+    this._fileTree.NodeCreated -= new FileTree.NodeChange(this.OnNodeCreated);
     base.OnGuiClosed();
   }
 
@@ -181,8 +202,8 @@ public class SongSelectGUI : GuiDialog
     ElementBounds bounds3 = ElementBounds.Fixed(contentBound2.fixedX + contentBound2.fixedWidth + elementToDialogPadding, contentBound2.fixedY, 20.0, contentBound2.fixedHeight);
     ElementBounds elementBounds6 = ElementBounds.Fill.WithFixedPadding(elementToDialogPadding);
     elementBounds6.BothSizing = (ElementSizing) 2;
-    elementBounds6.WithChildren(new ElementBounds[8]
-    {
+    elementBounds6.WithChildren(
+    [
       elementBounds2,
       elementBounds3,
       elementBounds5,
@@ -191,7 +212,7 @@ public class SongSelectGUI : GuiDialog
       bounds2,
       contentBound2,
       bounds3
-    });
+    ]);
     var composer = this.capi.Gui.CreateCompo("FileExplorerDialog", elementBounds1)
         .AddShadedDialogBG(elementBounds6, true, 5.0, 0.75f)
         .AddDialogTitleBar(title, new Action(this.Close), (CairoFont) null, (ElementBounds) null, (string) null)
@@ -320,7 +341,7 @@ public class SongSelectGUI : GuiDialog
     FileTree.Node contentSelection = this._contentSelection;
     if (contentSelection == null)
     {
-      this.DetailsText.SetNewText(Array.Empty<RichTextComponentBase>());
+      this.DetailsText.SetNewText([]);
     }
     else
     {
@@ -358,20 +379,31 @@ public class SongSelectGUI : GuiDialog
     }
     else
     {
-      MidiFileInfo midiFileInfo2 = new MidiFileInfo(node.FullPath);
+      MidiFileInfo midiFileInfo2 = new(node.FullPath);
       node.Context = (object) midiFileInfo2;
       midiFileInfo1 = midiFileInfo2;
     }
     CairoFont leftFont = CairoFont.WhiteDetailText().WithOrientation((EnumTextOrientation) 0);
     CairoFont rightFont = CairoFont.WhiteDetailText().WithOrientation((EnumTextOrientation) 1);
-    List<RichTextComponentBase> components = new List<RichTextComponentBase>();
+    CairoFont errorFont = CairoFont.WhiteDetailText().WithOrientation((EnumTextOrientation) 0).WithColor(new double[] { 1.0, 0.4, 0.4, 1.0 });
+    List<RichTextComponentBase> components = [];
     addComponent("Name:", node.Name);
     addPathComponent("Path:", node.DirectoryPath);
     addComponent("Size:", $"{midiFileInfo1.SizeKB:0.00} kB");
-    addComponent("Created:", $"{((FileSystemInfo) midiFileInfo1.FileInfo).CreationTime}");
-    addComponent("Extension:", ((FileSystemInfo) midiFileInfo1.FileInfo).Extension ?? "");
+    if (midiFileInfo1.Exists)
+    {
+      addComponent("Created:", $"{midiFileInfo1.FileInfo.CreationTime}");
+      addComponent("Extension:", midiFileInfo1.FileInfo.Extension ?? "");
+    }
     if (!midiFileInfo1.IsMidi)
-      return components.ToArray();
+    {
+      if (midiFileInfo1.ParseError != null)
+      {
+        addSingleComponent("");
+        components.Add((RichTextComponentBase) new RichTextComponent(this.capi, "Error: " + midiFileInfo1.ParseError + Environment.NewLine, errorFont));
+      }
+      return [.. components];
+    }
     for (int index = 0; index < midiFileInfo1.TracksCount; ++index)
     {
       MidiTrackInfo track = midiFileInfo1.Tracks[index];
@@ -382,13 +414,13 @@ public class SongSelectGUI : GuiDialog
       if (track.NoteCount != 0)
         addPlaybackComponent(midiFileInfo1.GetMidiFile(), track.Index);
     }
-    return components.ToArray();
+    return [.. components];
 
     static string trimContent(string content, int maxLength = 33)
     {
       if (content.Length <= maxLength)
         return content;
-      content = content.Substring(0, maxLength - 3);
+      content = content[..(maxLength - 3)];
       return content + "...";
     }
 
@@ -403,7 +435,7 @@ public class SongSelectGUI : GuiDialog
       components.Add((RichTextComponentBase) new RichTextComponent(this.capi, title, leftFont));
       if (content.Length > 33)
       {
-        content = content.Substring(0, 30);
+        content = content[..30];
         content += "...";
       }
       if (!content.EndsWith(Environment.NewLine))
@@ -511,8 +543,10 @@ public class SongSelectGUI : GuiDialog
     this.BandNameChange(bandName);
   }
 
-  public virtual void OnBeforeRenderFrame3D(float deltaTime)
+  public override void OnBeforeRenderFrame3D(float deltaTime)
   {
+    if (_initializationFailed)
+      return;
     if (this._previewMusicPlayer != null && this._previewMusicPlayer.IsPlaying)
     {
       this._previewMusicPlayer.Update(deltaTime);

@@ -1,19 +1,28 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Network.Playback.StartPlaybackBroadcast
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
+﻿using ProtoBuf;
 
-using ProtoBuf;
-
-#nullable disable
-namespace VSInstrumentsBase.src.Network.Playback;
-
-[ProtoContract]
-public class StartPlaybackBroadcast
+namespace VSInstrumentsBase.src.Network.Playback
 {
-  public int ClientId;
-  public string File;
-  public int Channel;
-  public int Instrument;
+	//
+	// Summary:
+	//     Packet broadcast to clients from the server informing them about a playback start.
+	[ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
+	public class StartPlaybackBroadcast
+	{
+		//
+		// Summary:
+		//     Id of the player that started the playback.
+		public int ClientId;
+		//
+		// Summary:
+		//     Relative path to the file to be played.
+		public string File;
+		//
+		// Summary:
+		//     The channel index to start playing.
+		public int Channel;
+		//
+		// Summary:
+		//     The unique identifier of instrument type used.
+		public int Instrument;
+	}
 }

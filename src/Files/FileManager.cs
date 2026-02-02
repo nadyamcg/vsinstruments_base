@@ -1,10 +1,4 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Files.FileManager
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
-using VSInstrumentsBase.src.Network.Files;
+﻿using VSInstrumentsBase.src.Network.Files;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,7 +9,7 @@ using System.Text.RegularExpressions;
 using Vintagestory.API.Common;
 using VSInstrumentsBase.src.Files;
 
-#nullable disable
+
 namespace VSInstrumentsBase.src.Files;
 
 public abstract class FileManager
@@ -98,7 +92,7 @@ public abstract class FileManager
     }
         UserTree = new FileTree(userPath);
         DataTree = new FileTree(dataPath);
-        Requests = new Dictionary<RequestId, FileRequest>(32 /*0x20*/);
+        Requests = new Dictionary<RequestId, FileRequest>(32 );
     api.Event.RegisterGameTickListener(new Action<float>(Update), 10, 0);
   }
 
@@ -190,12 +184,12 @@ public abstract class FileManager
 
     public RequestId(int high, int low)
     {
-            _value = (ulong) (uint) high << 32 /*0x20*/ |  (uint) low;
+            _value = (ulong) (uint) high << 32  |  (uint) low;
     }
 
     public RequestId(RequestId other) => _value = other._value;
 
-    public int High => (int) (_value >> 32 /*0x20*/);
+    public int High => (int) (_value >> 32 );
 
     public int Low => (int) ((long)_value &  uint.MaxValue);
 

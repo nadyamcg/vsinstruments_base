@@ -1,31 +1,19 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Mapping.Mappers.NoteMapperOctave`1
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.Midi;
 using System;
 
-#nullable enable
+
 namespace VSInstrumentsBase.src.Mapping.Mappers;
 
-public sealed class NoteMapperOctave<T> : NoteMappingBase<
-#nullable disable
+public sealed class NoteMapperOctave<T>(Pitch pitch) : NoteMappingBase<
+
 T>.NoteMapperBase
 {
   private readonly 
-  #nullable enable
-  T?[] _values;
-  private readonly Pitch _pitch;
+  
+  T[] _values = new T[(int)sbyte.MaxValue];
+  private readonly Pitch _pitch = pitch;
 
-  public NoteMapperOctave(Pitch pitch)
-  {
-    this._values = new T[(int) sbyte.MaxValue];
-    this._pitch = pitch;
-  }
-
-  public override bool Add(Pitch pitch, T value)
+    public override bool Add(Pitch pitch, T value)
   {
     if (pitch.PositionInOctave() != this._pitch.PositionInOctave())
       return false;

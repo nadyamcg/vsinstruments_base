@@ -1,4 +1,4 @@
-namespace vsinstruments_base.src;
+namespace VSInstrumentsBase.src;
 
 public class Definitions
 {

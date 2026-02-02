@@ -1,9 +1,3 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: Instruments.Playback.PlaybackManagerServer
-// Assembly: vsinstruments_base, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 7554D117-662F-4F07-A243-1ECE784371FD
-// Assembly location: C:\users\nadya\Desktop\vsinstruments_base(1).dll
-
 using VSInstrumentsBase.src.Files;
 using VSInstrumentsBase.src.Network.Playback;
 using VSInstrumentsBase.src.Players;
@@ -12,9 +6,7 @@ using System;
 using System.Diagnostics;
 using Vintagestory.API.Common;
 using Vintagestory.API.Server;
-using VSInstrumentsBase.src.Files;
 
-#nullable disable
 namespace VSInstrumentsBase.src.Playback;
 
 public class PlaybackManagerServer : PlaybackManager
@@ -91,7 +83,7 @@ public class PlaybackManagerServer : PlaybackManager
       this.ServerChannel.SendPacket<StartPlaybackDenyOwner>(new StartPlaybackDenyOwner()
       {
         Reason = DenyPlaybackReason.TooManyRequests
-      }, new IServerPlayer[1]{ source });
+      }, [source]);
     }
     else
     {
@@ -101,7 +93,7 @@ public class PlaybackManagerServer : PlaybackManager
         this.ServerChannel.SendPacket<StartPlaybackDenyOwner>(new StartPlaybackDenyOwner()
         {
           Reason = DenyPlaybackReason.OperationInProgress
-        }, new IServerPlayer[1]{ source });
+        }, [source]);
       }
       else
       {
@@ -121,7 +113,7 @@ public class PlaybackManagerServer : PlaybackManager
           this.ServerChannel.SendPacket<StartPlaybackDenyOwner>(new StartPlaybackDenyOwner()
           {
             Reason = DenyPlaybackReason.InvalidFile
-          }, new IServerPlayer[1]{ source });
+          }, [source]);
         }
         else
         {
@@ -131,14 +123,14 @@ public class PlaybackManagerServer : PlaybackManager
             Channel = channel,
             File = serverFile.RelativePath,
             Instrument = instrumentType
-          }, new IServerPlayer[1]{ source });
+          }, [source]);
           ((ICoreAPI) this.ServerAPI).Logger.Notification("[PlaybackManagerServer] Broadcasting playback to other players");
           this.ServerChannel.SendPacket<StartPlaybackOwner>(new StartPlaybackOwner()
           {
             Channel = channel,
             File = sourceFile,
             Instrument = instrumentType
-          }, new IServerPlayer[1]{ source });
+          }, [source]);
           playbackState.StartPlayback(durationSeconds);
         }
       }
@@ -165,7 +157,7 @@ public class PlaybackManagerServer : PlaybackManager
     {
       ClientId = clientId,
       Reason = reason
-    }, Array.Empty<IServerPlayer>());
+    }, []);
     playbackState.StopPlayback();
   }
 
