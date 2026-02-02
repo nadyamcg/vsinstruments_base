@@ -137,9 +137,9 @@ public class FileTree : IDisposable
         Directory.CreateDirectory(directoryName);
       // caller is responsible for disposing the stream
       FileStream file = new(fullPath, FileMode.Create);
-            createNodeRecursive(fullPath);
-            return file;
-        }
+      createNodeRecursive(fullPath);
+      return file;
+    }
 
     FileTree.Node createNodeRecursive(string fullPath)
     {
@@ -159,12 +159,11 @@ public class FileTree : IDisposable
 
   public FileTree.Node Find(string path, StringComparison stringComparison = StringComparison.OrdinalIgnoreCase)
   {
-    if (!this.IsValid)
+    if (!this.IsValid || string.IsNullOrEmpty(path))
       return (FileTree.Node) null;
     path = Path.TrimEndingDirectorySeparator(path);
-    string str;
-    for (path = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar); path.StartsWith(Path.DirectorySeparatorChar); path = str[1..])
-      str = path;
+    // normalize path separators for cross-platform compatibility
+    path = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
     if (Path.IsPathFullyQualified(path))
     {
       string fullPath = this._rootNode.FullPath;
