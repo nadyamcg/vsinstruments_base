@@ -183,6 +183,7 @@ public class SongSelectGUI : GuiDialog
       this._previewMusicPlayer = (MidiPlayerBase) null;
     }
     this._fileTree.NodeChanged -= new FileTree.NodeChange(this.OnNodeChanged);
+    this._fileTree.NodeCreated -= new FileTree.NodeChange(this.OnNodeCreated);
     base.OnGuiClosed();
   }
 
