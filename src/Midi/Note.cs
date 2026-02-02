@@ -16,29 +16,16 @@ public struct Note(char letter, int accidental)
   [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
   public int Accidental { get; } = accidental;
 
-  public override string ToString()
+  public override readonly string ToString()
   {
     int accidental = this.Accidental;
-    if (true)
-      ;
-    string str;
-    switch (accidental)
+    string str = accidental switch
     {
-      case -1:
-        str = "b";
-        break;
-      case 0:
-        str = "";
-        break;
-      case 1:
-        str = "#";
-        break;
-      default:
-        str = "";
-        break;
-    }
-    if (true)
-      ;
+      -1 => "b",
+      0 => "",
+      1 => "#",
+      _ => "",
+    };
     return $"{this.Letter}{str}";
   }
 
@@ -54,23 +41,12 @@ public struct Note(char letter, int accidental)
     if (position < noteStr.Length)
     {
       char ch = noteStr[position];
-      if (true)
-        ;
-      int num;
-      switch (ch)
+      var num = ch switch
       {
-        case '#':
-          num = 1;
-          break;
-        case 'b':
-          num = -1;
-          break;
-        default:
-          num = 0;
-          break;
-      }
-      if (true)
-        ;
+        '#' => 1,
+        'b' => -1,
+        _ => 0,
+      };
       accidental = num;
       if (accidental != 0)
         ++position;

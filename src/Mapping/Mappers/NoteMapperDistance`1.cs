@@ -10,7 +10,7 @@ T>.NoteMapperBase
 {
   private readonly 
   
-  T?[] values;
+  T[] values;
 
   public NoteMapperDistance() => this.values = new T[(int) sbyte.MaxValue];
 

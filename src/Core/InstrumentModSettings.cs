@@ -13,7 +13,7 @@ public class InstrumentModSettings
   public float PlayerVolume { get; set; } = 0.7f;
   public float BlockVolume { get; set; } = 1f;
   public string LocalSongsDirectory { get; set; } = Path.Combine(GamePaths.DataPath, "Songs");
-  public string DataSongsDirectory { get; set; } = Path.Combine(GamePaths.DataPath, "Songs");
+  public string DataSongsDirectory { get; set; } = Path.Combine(GamePaths.DataPath, "SongsData");
 
   private static void EnsureDirectoryExists(string path)
   {

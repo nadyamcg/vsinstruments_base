@@ -53,13 +53,13 @@ public class MusicBlockGUI : GuiDialogBlockEntity
     ElementBounds elementBounds10 = ElementBounds.FixedSize(0.0, 0.0).FixedUnder(elementBounds9, 10.0).WithAlignment((EnumDialogArea) 8).WithFixedPadding(10.0, 2.0);
     ElementBounds elementBounds11 = ElementBounds.Fill.WithFixedPadding(GuiStyle.ElementToDialogPadding);
     elementBounds11.BothSizing = (ElementSizing) 2;
-    elementBounds11.WithChildren(new ElementBounds[1]
-    {
+    elementBounds11.WithChildren(
+    [
       elementBounds1
-    });
+    ]);
     ElementBounds elementBounds12 = ElementStdBounds.AutosizedMainDialog.WithAlignment((EnumDialogArea) 10).WithFixedAlignmentOffset(-GuiStyle.DialogToScreenPadding, 0.0);
         ClearComposers();
-        SingleComposer = capi.Gui.CreateCompo("blockentitymusicblock" + BlockEntityPosition?.ToString(), elementBounds12).AddShadedDialogBG(elementBounds11, true, 5.0, 0.75f).AddDialogTitleBar(DialogTitle, new Action(OnTitleBarClose),  null,  null,  null).BeginChildElements(elementBounds11).AddDynamicText(Lang.Get($"Name: \"{name}\"", Array.Empty<object>()), CairoFont.WhiteSmallText(), elementBounds2, nameof (name)).AddTextInput(elementBounds3, new Action<string>(OnNameChange),  null,  null).AddDynamicText(Lang.Get($"Band Name: \"{bandName}\"", Array.Empty<object>()), CairoFont.WhiteSmallText(), elementBounds4, nameof (bandName)).AddTextInput(elementBounds5, new Action<string>(OnBandNameChange),  null,  null).AddItemSlotGrid(Inventory, new Action<object>(SendInvPacket), 1, new int[1], elementBounds7,  null).AddStaticText(Lang.Get("Instrument", Array.Empty<object>()), CairoFont.WhiteSmallText(), elementBounds6,  null).AddDynamicText(Lang.Get($"Song File: \n\"{songName}\"", Array.Empty<object>()), CairoFont.WhiteSmallText(), elementBounds8, nameof (songName)).AddSmallButton(Lang.Get("Song Select", Array.Empty<object>()), () => OnSongSelect(), elementBounds10, (EnumButtonStyle) 2, "songSelectButton").EndChildElements().Compose(true);
+        SingleComposer = capi.Gui.CreateCompo("blockentitymusicblock" + BlockEntityPosition?.ToString(), elementBounds12).AddShadedDialogBG(elementBounds11, true, 5.0, 0.75f).AddDialogTitleBar(DialogTitle, new Action(OnTitleBarClose),  null,  null,  null).BeginChildElements(elementBounds11).AddDynamicText(Lang.Get($"Name: \"{name}\"", []), CairoFont.WhiteSmallText(), elementBounds2, nameof (name)).AddTextInput(elementBounds3, new Action<string>(OnNameChange),  null,  null).AddDynamicText(Lang.Get($"Band Name: \"{bandName}\"", []), CairoFont.WhiteSmallText(), elementBounds4, nameof (bandName)).AddTextInput(elementBounds5, new Action<string>(OnBandNameChange),  null,  null).AddItemSlotGrid(Inventory, new Action<object>(SendInvPacket), 1, new int[1], elementBounds7,  null).AddStaticText(Lang.Get("Instrument", []), CairoFont.WhiteSmallText(), elementBounds6,  null).AddDynamicText(Lang.Get($"Song File: \n\"{songName}\"", []), CairoFont.WhiteSmallText(), elementBounds8, nameof (songName)).AddSmallButton(Lang.Get("Song Select", []), () => OnSongSelect(), elementBounds10, (EnumButtonStyle) 2, "songSelectButton").EndChildElements().Compose(true);
     if (itemSlot == null)
       return;
         SingleComposer.OnMouseMove(new MouseEvent(capi.Input.MouseX, capi.Input.MouseY));
@@ -72,7 +72,7 @@ public class MusicBlockGUI : GuiDialogBlockEntity
     if (!(newName != ""))
       return;
     byte[] array;
-    using (MemoryStream memoryStream = new MemoryStream())
+    using (MemoryStream memoryStream = new())
     {
       new BinaryWriter( memoryStream).Write(newName);
       array = memoryStream.ToArray();
@@ -85,7 +85,7 @@ public class MusicBlockGUI : GuiDialogBlockEntity
     string str = !(newBand != "") ? "No Band" : $"Band Name: \"{newBand}\"";
         SingleComposer.GetDynamicText("bandName").SetNewText(str, false, false, false);
     byte[] array;
-    using (MemoryStream memoryStream = new MemoryStream())
+    using (MemoryStream memoryStream = new())
     {
       new BinaryWriter( memoryStream).Write(newBand);
       array = memoryStream.ToArray();
@@ -118,9 +118,9 @@ public class MusicBlockGUI : GuiDialogBlockEntity
   {
         SingleComposer.GetDynamicText(nameof (songName)).SetNewText($"Song File: \n\"{songName}\"", false, false, false);
     byte[] array;
-    using (MemoryStream memoryStream = new MemoryStream())
+    using (MemoryStream memoryStream = new())
     {
-      BinaryWriter binaryWriter = new BinaryWriter( memoryStream);
+      BinaryWriter binaryWriter = new( memoryStream);
       binaryWriter.Write(songName);
       binaryWriter.Write(songPath);
       array = memoryStream.ToArray();
@@ -137,8 +137,7 @@ public class MusicBlockGUI : GuiDialogBlockEntity
 
   private void OnInventorySlotModified(int slotid)
   {
-    if (slotid != 0)
-      ;
+    // Slot change handling can be implemented here if needed.
   }
 
   public override void OnGuiOpened()

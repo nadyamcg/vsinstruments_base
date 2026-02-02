@@ -4,22 +4,16 @@ using System;
 
 namespace VSInstrumentsBase.src.Mapping.Mappers;
 
-public sealed class NoteMapperOctave<T> : NoteMappingBase<
+public sealed class NoteMapperOctave<T>(Pitch pitch) : NoteMappingBase<
 
 T>.NoteMapperBase
 {
   private readonly 
   
-  T?[] _values;
-  private readonly Pitch _pitch;
+  T[] _values = new T[(int)sbyte.MaxValue];
+  private readonly Pitch _pitch = pitch;
 
-  public NoteMapperOctave(Pitch pitch)
-  {
-    this._values = new T[(int) sbyte.MaxValue];
-    this._pitch = pitch;
-  }
-
-  public override bool Add(Pitch pitch, T value)
+    public override bool Add(Pitch pitch, T value)
   {
     if (pitch.PositionInOctave() != this._pitch.PositionInOctave())
       return false;

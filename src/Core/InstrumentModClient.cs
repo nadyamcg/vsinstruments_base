@@ -88,6 +88,12 @@ public class InstrumentModClient : InstrumentModBase
 
   private void OnMusicBlockPlayRequest(MusicBlockPlayRequest packet)
   {
+    if (!clientSideEnable || !clientSideReady)
+    {
+      clientApi.Logger.Notification("[InstrumentModClient] Ignoring MusicBlock request: client not enabled/ready.");
+      return;
+    }
+
     clientApi.Logger.Notification("[InstrumentModClient] Received MusicBlock play request: " + packet.SongPath);
 
     InstrumentType instrumentType = InstrumentType.Find(packet.InstrumentId);

@@ -10,12 +10,17 @@ using Vintagestory.GameContent;
 
 namespace VSInstrumentsBase.src.GUI;
 
-internal class GuiElementFlatListEx : GuiElementFlatList
+internal class GuiElementFlatListEx(
+  ICoreClientAPI capi,
+  ElementBounds bounds,
+  Action<int> onLeftClick,
+  Action<int> onExpandClick,
+  List<IFlatListItem> elements = null) : GuiElementFlatList(capi, bounds, onLeftClick, elements)
 {
-  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
-  private ICoreClientAPI ClientAPI { get; set; }
+    [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private ICoreClientAPI ClientAPI { get; set; } = capi;
 
-  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
   private LoadedTexture ExpandedTexture { get; set; }
 
   [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -24,10 +29,10 @@ internal class GuiElementFlatListEx : GuiElementFlatList
   [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
   private LoadedTexture HoverOverlayTexture { get; set; }
 
-  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
-  private Action<int> OnExpandClick { get; set; }
+    [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    private Action<int> OnExpandClick { get; set; } = onExpandClick;
 
-  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
   private bool WasMouseDownOnElement { get; set; }
 
   private bool RecomposeNeeded
@@ -38,26 +43,14 @@ internal class GuiElementFlatListEx : GuiElementFlatList
     }
   }
 
-  public GuiElementFlatListEx(
-    ICoreClientAPI capi,
-    ElementBounds bounds,
-    Action<int> onLeftClick,
-    Action<int> onExpandClick,
-    List<IFlatListItem> elements = null)
-    : base(capi, bounds, onLeftClick, elements)
-  {
-    this.ClientAPI = capi;
-    this.OnExpandClick = onExpandClick;
-  }
-
-  public void Recompose(ICoreClientAPI capi)
+    public void Recompose(ICoreClientAPI capi)
   {
     this.ExpandedTexture?.Dispose();
     this.CollapsedTexture?.Dispose();
     this.ExpandedTexture = this.GenTextTexture('▼');
     this.CollapsedTexture = this.GenTextTexture('►');
     FieldInfo field = typeof (GuiElementFlatList).GetField("hoverOverlayTexture", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
-    if (field != null)
+    if (field == null)
       return;
     this.HoverOverlayTexture = (LoadedTexture) field.GetValue((object) this);
   }
@@ -68,7 +61,7 @@ internal class GuiElementFlatListEx : GuiElementFlatList
     return new TextTextureUtil(this.ClientAPI).GenTextTexture($"{symbol}", cairoFont, (TextBackground) null);
   }
 
-  public virtual void OnMouseDownOnElement(ICoreClientAPI api, MouseEvent args)
+  public override void OnMouseDownOnElement(ICoreClientAPI api, MouseEvent args)
   {
     if (!((GuiElement) this).Bounds.ParentBounds.PointInside(args.X, args.Y))
       return;
@@ -76,7 +69,7 @@ internal class GuiElementFlatListEx : GuiElementFlatList
     this.WasMouseDownOnElement = true;
   }
 
-  public virtual void OnMouseUpOnElement(ICoreClientAPI api, MouseEvent args)
+  public override void OnMouseUpOnElement(ICoreClientAPI api, MouseEvent args)
   {
     if (!((GuiElement) this).Bounds.ParentBounds.PointInside(args.X, args.Y) || !this.WasMouseDownOnElement)
       return;
@@ -103,18 +96,14 @@ internal class GuiElementFlatListEx : GuiElementFlatList
             if (GuiExtensions.IsInside((float) mouseX, (float) mouseY, expandButtonBounds))
             {
               api.Gui.PlaySound("menubutton_press", false, 1f);
-              Action<int> onExpandClick = this.OnExpandClick;
-              if (onExpandClick != null)
-                onExpandClick(num1);
-              args.Handled = true;
+                            this.OnExpandClick?.Invoke(num1);
+                            args.Handled = true;
               break;
             }
           }
           api.Gui.PlaySound("menubutton_press", false, 1f);
-          Action<int> onLeftClick = this.onLeftClick;
-          if (onLeftClick != null)
-            onLeftClick(num1);
-          args.Handled = true;
+                    this.onLeftClick?.Invoke(num1);
+                    args.Handled = true;
           break;
         }
         absY += GuiElement.scaled((double) (this.unscaledCellHeight + this.unscaledCellSpacing));
@@ -142,7 +131,7 @@ internal class GuiElementFlatListEx : GuiElementFlatList
     return new Vec4f((float) ((GuiElement) this).Bounds.absX + (float) (depth * num1), posY + 0.25f * (float) num2, (float) num1, (float) num2);
   }
 
-  public virtual void RenderInteractiveElements(float deltaTime)
+  public override void RenderInteractiveElements(float deltaTime)
   {
     if (this.RecomposeNeeded)
       this.Recompose(this.ClientAPI);
@@ -165,7 +154,7 @@ internal class GuiElementFlatListEx : GuiElementFlatList
           Vec4f expandButtonBounds = this.GetExpandButtonBounds(posY, flatListExpandable.Depth);
           float x = expandButtonBounds.X;
           float num3;
-          if (!(flatListExpandable is FileTree.Node node) || node.ChildDirectoryCount > 0)
+          if (flatListExpandable is not FileTree.Node node || node.ChildDirectoryCount > 0)
           {
             LoadedTexture loadedTexture = flatListExpandable.IsExpanded ? this.ExpandedTexture : this.CollapsedTexture;
             Vec4f vec4f = GuiExtensions.IsInside((float) mouseX, (float) mouseY, expandButtonBounds) ? GuiExtensions.ActiveButtonTextColor : GuiExtensions.DialogDefaultTextColor;
@@ -181,7 +170,7 @@ internal class GuiElementFlatListEx : GuiElementFlatList
     }
   }
 
-  public virtual void Dispose()
+  public override void Dispose()
   {
     this.CollapsedTexture?.Dispose();
     this.ExpandedTexture?.Dispose();

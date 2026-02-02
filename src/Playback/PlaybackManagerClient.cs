@@ -8,7 +8,6 @@ using System.Diagnostics;
 using System.IO;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using VSInstrumentsBase.src.Files;
 
 
 namespace VSInstrumentsBase.src.Playback;

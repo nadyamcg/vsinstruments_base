@@ -6,13 +6,9 @@ using VSInstrumentsBase.src.Files;
 
 namespace VSInstrumentsBase.src.Playback;
 
-public abstract class PlaybackManager
+public abstract class PlaybackManager(ICoreAPI api, FileManager fileManager)
 {
-  protected PlaybackManager(ICoreAPI api, FileManager fileManager)
-  {
-  }
-
-  [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
   protected Dictionary<int, PlaybackManager.PlaybackStateBase> PlaybackStates { get; private set; } = new Dictionary<int, PlaybackManager.PlaybackStateBase>(64 );
 
   protected void AddPlaybackState<T>(T playbackInfo) where T : PlaybackManager.PlaybackStateBase
@@ -29,15 +25,14 @@ public abstract class PlaybackManager
       state = playbackStateBase as T;
       return true;
     }
-    state = default (T);
+    state = default;
     return false;
   }
 
   protected PlaybackManager.PlaybackStateBase GetPlaybackState(int clientId)
   {
-    PlaybackManager.PlaybackStateBase playbackStateBase;
-    return this.PlaybackStates.TryGetValue(clientId, out playbackStateBase) ? playbackStateBase : (PlaybackManager.PlaybackStateBase) null;
-  }
+        return this.PlaybackStates.TryGetValue(clientId, out PlaybackStateBase playbackStateBase) ? playbackStateBase : (PlaybackManager.PlaybackStateBase)null;
+    }
 
   public virtual void Update(float deltaTime)
   {

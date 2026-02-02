@@ -14,57 +14,91 @@ public class MidiFileInfo
   public readonly int BPM;
   public readonly double Duration;
   public readonly MidiTrackInfo[] Tracks;
+  public readonly string ParseError;
 
-  public bool Exists => ((FileSystemInfo) this.FileInfo).Exists;
+  public bool Exists => FileInfo?.Exists ?? false;
 
-  public bool IsMidi => this.MidiFile != null;
+  public bool IsMidi => MidiFile != null;
 
-  public long SizeKB => (long) ((double) this.FileInfo.Length / 1000.0);
+  public long SizeKB
+  {
+    get
+    {
+      if (!Exists)
+        return 0;
+      try
+      {
+        FileInfo.Refresh();
+        return (long)(FileInfo.Length / 1000.0);
+      }
+      catch
+      {
+        return 0;
+      }
+    }
+  }
 
-  public int TracksCount => this.Tracks.Length;
+  public int TracksCount => Tracks?.Length ?? 0;
 
   public string FormatText
   {
     get
     {
-      if (!this.IsMidi)
-        return "Unknown";
-      switch ((int) this.MidiFile.OriginalFormat)
+      if (!IsMidi)
+        return ParseError != null ? "Parse Error" : "Unknown";
+      return (int)MidiFile.OriginalFormat switch
       {
-        case 0:
-          return "Single track";
-        case 1:
-          return "Multi track";
-        case 2:
-          return "Multi song";
-        default:
-          return "Unknown";
-      }
+        0 => "Single track",
+        1 => "Multi track",
+        2 => "Multi song",
+        _ => "Unknown"
+      };
     }
   }
 
   public MidiFileInfo(string path)
   {
-    this.FileInfo = new FileInfo(path);
-    if (!((FileSystemInfo) this.FileInfo).Exists)
+    FileInfo = new FileInfo(path);
+    Tracks = Array.Empty<MidiTrackInfo>();
+
+    if (!FileInfo.Exists)
+    {
+      ParseError = "File does not exist";
       return;
+    }
+
+    if (FileInfo.Length == 0)
+    {
+      ParseError = "File is empty (0 bytes)";
+      return;
+    }
+
     try
     {
-      this.MidiFile = MidiFile.Read(path, (ReadingSettings) null);
+      MidiFile = MidiFile.Read(path, (ReadingSettings)null);
     }
-    catch
+    catch (Exception ex)
     {
+      ParseError = $"MIDI parse failed: {ex.Message}";
       return;
     }
-    TempoMap tempoMap = TempoMapManagingUtilities.GetTempoMap(this.MidiFile);
-    this.BPM = (int) Math.Round(tempoMap.GetTempoAtTime((ITimeSpan) new MetricTimeSpan(0L)).BeatsPerMinute);
-    TimedEvent timedEvent = TimedEventsManagingUtilities.GetTimedEvents(this.MidiFile, (TimedEventDetectionSettings) null).LastOrDefault<TimedEvent>();
-    this.Duration = timedEvent == null ? 0.0 : TimeConverter.ConvertTo<MetricTimeSpan>(timedEvent.Time, tempoMap).TotalSeconds;
-    TrackChunk[] array = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(this.MidiFile).ToArray<TrackChunk>();
-    this.Tracks = new MidiTrackInfo[array.Length];
-    for (int trackIndex = 0; trackIndex < array.Length; ++trackIndex)
-      this.Tracks[trackIndex] = new MidiTrackInfo(this.MidiFile, trackIndex, tempoMap);
+
+    try
+    {
+      TempoMap tempoMap = TempoMapManagingUtilities.GetTempoMap(MidiFile);
+      BPM = (int)Math.Round(tempoMap.GetTempoAtTime((ITimeSpan)new MetricTimeSpan(0L)).BeatsPerMinute);
+      TimedEvent timedEvent = TimedEventsManagingUtilities.GetTimedEvents(MidiFile, (TimedEventDetectionSettings)null).LastOrDefault<TimedEvent>();
+      Duration = timedEvent == null ? 0.0 : TimeConverter.ConvertTo<MetricTimeSpan>(timedEvent.Time, tempoMap).TotalSeconds;
+      TrackChunk[] array = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(MidiFile).ToArray<TrackChunk>();
+      Tracks = new MidiTrackInfo[array.Length];
+      for (int trackIndex = 0; trackIndex < array.Length; ++trackIndex)
+        Tracks[trackIndex] = new MidiTrackInfo(MidiFile, trackIndex, tempoMap);
+    }
+    catch (Exception ex)
+    {
+      ParseError = $"MIDI metadata extraction failed: {ex.Message}";
+    }
   }
 
-  public MidiFile GetMidiFile() => this.MidiFile;
+  public MidiFile GetMidiFile() => MidiFile;
 }

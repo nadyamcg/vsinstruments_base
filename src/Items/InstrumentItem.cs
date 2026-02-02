@@ -12,27 +12,25 @@ namespace VSInstrumentsBase.src.Items;
 
 public class InstrumentItem : Item
 {
-  private float currentPitch;
   private ICoreClientAPI capi;
-  private bool holding = false;
   private InstrumentType _instrumentType;
   private SkillItem[] toolModes;
 
-  public virtual void OnLoaded(ICoreAPI api)
+  public override void OnLoaded(ICoreAPI api)
   {
     if (api.Side != EnumAppSide.Client)
       return;
     this.Startup();
-    this.toolModes = ObjectCacheUtil.GetOrCreate<SkillItem[]>(api, "instrumentToolModes", () => new SkillItem[0]);
+    this.toolModes = ObjectCacheUtil.GetOrCreate<SkillItem[]>(api, "instrumentToolModes", () => []);
   }
 
-  public virtual void OnUnloaded(ICoreAPI api)
+  public override void OnUnloaded(ICoreAPI api)
   {
     for (int index = 0; this.toolModes != null && index < this.toolModes.Length; ++index)
       this.toolModes[index]?.Dispose();
   }
 
-  public virtual SkillItem[] GetToolModes(
+  public override SkillItem[] GetToolModes(
     ItemSlot slot,
     IClientPlayer forPlayer,
     BlockSelection blocksel)
@@ -40,7 +38,7 @@ public class InstrumentItem : Item
     return (SkillItem[]) null;
   }
 
-  public virtual void SetToolMode(
+  public override void SetToolMode(
     ItemSlot slot,
     IPlayer byPlayer,
     BlockSelection blockSel,
@@ -48,9 +46,9 @@ public class InstrumentItem : Item
   {
   }
 
-  public virtual int GetToolMode(ItemSlot slot, IPlayer byPlayer, BlockSelection blockSel) => 0;
+  public override int GetToolMode(ItemSlot slot, IPlayer byPlayer, BlockSelection blockSel) => 0;
 
-  public virtual void OnHeldInteractStart(
+  public override void OnHeldInteractStart(
     ItemSlot slot,
     EntityAgent byEntity,
     BlockSelection blockSel,
@@ -58,7 +56,7 @@ public class InstrumentItem : Item
     bool firstEvent,
     ref EnumHandHandling handling)
   {
-    if (!firstEvent || this.api.Side != EnumAppSide.Client || !(byEntity is EntityPlayer))
+    if (!firstEvent || this.api.Side != EnumAppSide.Client || byEntity is not EntityPlayer)
       return;
     if (byEntity.Controls.Sneak)
     {
@@ -101,7 +99,6 @@ public class InstrumentItem : Item
   private void ChangeFromInstrument(ActiveSlotChangeEventArgs args)
   {
     this.capi.Event.AfterActiveSlotChanged -= new Action<ActiveSlotChangeEventArgs>(this.ChangeFromInstrument);
-    this.holding = false;
     if (!Definitions.Instance.IsPlaying())
       return;
     Definitions.Instance.SetIsPlaying(false);
@@ -124,8 +121,7 @@ public class InstrumentItem : Item
       if (this._instrumentType != null)
         return this._instrumentType;
       string path = ((RegistryObject) this).Code?.Path;
-      if (this.api != null)
-        this.api.Logger.Debug("[InstrumentItem] Looking for instrument type: " + path);
+      this.api?.Logger.Debug("[InstrumentItem] Looking for instrument type: " + path);
       if (!string.IsNullOrEmpty(path))
       {
         this._instrumentType = InstrumentType.Find(path);
@@ -135,8 +131,7 @@ public class InstrumentItem : Item
       if (this._instrumentType == null)
       {
         this._instrumentType = InstrumentType.Find("grandpiano");
-        if (this.api != null)
-          this.api.Logger.Warning($"[InstrumentItem] Could not find instrument type for '{path}', defaulting to grandpiano");
+        this.api?.Logger.Warning($"[InstrumentItem] Could not find instrument type for '{path}', defaulting to grandpiano");
       }
       return this._instrumentType;
     }

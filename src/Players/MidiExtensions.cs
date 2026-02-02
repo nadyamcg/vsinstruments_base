@@ -17,7 +17,7 @@ public static class MidiExtensions
 
   public static double ReadTrackDuration(this MidiFile midi, int trackIndex)
   {
-    TrackChunk[] array = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>();
+    TrackChunk[] array = [.. Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi)];
     if (trackIndex >= array.Length)
       return 0.0;
     TrackChunk trackChunk = array[trackIndex];
@@ -28,7 +28,7 @@ public static class MidiExtensions
 
   public static double ReadFirstNoteInSeconds(this MidiFile midi, int trackIndex)
   {
-    TrackChunk[] array = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>();
+    TrackChunk[] array = [.. Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi)];
     if (trackIndex >= array.Length)
       return -1.0;
     Note note = NotesManagingUtilities.GetNotes(array[trackIndex], (NoteDetectionSettings) null, (TimedEventDetectionSettings) null).FirstOrDefault<Note>();
@@ -40,7 +40,7 @@ public static class MidiExtensions
 
   public static int ReadNoteCount(this MidiFile midi, int trackIndex)
   {
-    TrackChunk[] array = Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi).ToArray<TrackChunk>();
+    TrackChunk[] array = [.. Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi)];
     return trackIndex >= array.Length ? 0 : NotesManagingUtilities.GetNotes(array[trackIndex], (NoteDetectionSettings) null, (TimedEventDetectionSettings) null).Count<Note>();
   }
 
@@ -65,8 +65,8 @@ public static class MidiExtensions
 
   public static string GetInstrumentName(byte programNumber)
   {
-    string[] strArray = new string[128 ]
-    {
+    string[] strArray =
+    [
       "Acoustic Grand Piano",
       "Bright Acoustic Piano",
       "Electric Grand Piano",
@@ -195,7 +195,7 @@ public static class MidiExtensions
       "Helicopter",
       "Applause",
       "Gunshot"
-    };
+    ];
     return programNumber >= (byte) 0 && (int) programNumber < strArray.Length ? strArray[(int) programNumber] : "Unknown";
   }
 }

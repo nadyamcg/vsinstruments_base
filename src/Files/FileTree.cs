@@ -18,13 +18,13 @@ public class FileTree : IDisposable
   FileTree.RootNode _rootNode;
   private FileSystemWatcher _watcher;
   private readonly string _searchPattern = "*";
-  protected ConcurrentQueue<FileTree.IQueuedEvent> _eventQueue = new ConcurrentQueue<FileTree.IQueuedEvent>();
+  protected ConcurrentQueue<FileTree.IQueuedEvent> _eventQueue = new();
   public 
   
-  FileTree.NodeChange? NodeCreated;
-  public FileTree.NodeChange? NodeChanged;
-  public FileTree.NodeRename? NodeRenamed;
-  public FileTree.NodeChange? NodeDeleted;
+  FileTree.NodeChange NodeCreated;
+  public FileTree.NodeChange NodeChanged;
+  public FileTree.NodeRename NodeRenamed;
+  public FileTree.NodeChange NodeDeleted;
 
   private void BuildBranches(
   
@@ -33,14 +33,14 @@ public class FileTree : IDisposable
     if (!node.IsDirectory)
       return;
     string fullPath = node.FullPath;
-    EnumerationOptions enumerationOptions = new EnumerationOptions()
+    EnumerationOptions enumerationOptions = new()
     {
       IgnoreInaccessible = true,
       RecurseSubdirectories = false
     };
     foreach (string enumerateFileSystemEntry in Directory.EnumerateFileSystemEntries(fullPath, this._searchPattern, enumerationOptions))
     {
-      FileTree.Node node1 = new FileTree.Node(enumerateFileSystemEntry);
+      FileTree.Node node1 = new(enumerateFileSystemEntry);
       node.AddChild(node1);
       this.BuildBranches(node1);
     }
@@ -49,7 +49,7 @@ public class FileTree : IDisposable
 
   private FileTree.RootNode BuildTree(string rootFullPath)
   {
-    FileTree.RootNode rootNode = new FileTree.RootNode(this, rootFullPath);
+    FileTree.RootNode rootNode = new(this, rootFullPath);
     this.BuildBranches((FileTree.Node) rootNode);
     return rootNode;
   }
@@ -79,10 +79,9 @@ public class FileTree : IDisposable
   {
     lock (this._eventQueue)
     {
-      FileTree.IQueuedEvent result;
-      while (!this._eventQueue.IsEmpty && this._eventQueue.TryDequeue(out result))
-        result.Invoke(this);
-    }
+            while (!this._eventQueue.IsEmpty && this._eventQueue.TryDequeue(out IQueuedEvent result))
+                result.Invoke(this);
+        }
   }
 
   private void OnWatcherRenamedEvent(object sender, RenamedEventArgs args)
@@ -105,7 +104,7 @@ public class FileTree : IDisposable
     FileTree.Node node1 = this.Find(directoryName);
     if (node1 == null)
       return;
-    FileTree.Node node2 = new FileTree.Node(args.FullPath);
+    FileTree.Node node2 = new(args.FullPath);
     node1.AddChild(node2);
     this.BuildBranches(node2);
     this.PushEvent((FileTree.IQueuedEvent) new FileTree.CreatedEvent(node2));
@@ -136,18 +135,16 @@ public class FileTree : IDisposable
       string directoryName = Path.GetDirectoryName(fullPath);
       if (!Directory.Exists(directoryName))
         Directory.CreateDirectory(directoryName);
-      using (FileStream file = new FileStream(fullPath, (FileMode) 2))
-      {
-        createNodeRecursive(fullPath);
-        return file;
-      }
-    }
+            using FileStream file = new (fullPath, (FileMode)2);
+            createNodeRecursive(fullPath);
+            return file;
+        }
 
     FileTree.Node createNodeRecursive(string fullPath)
     {
       string directoryName = Path.GetDirectoryName(fullPath);
       FileTree.Node node1 = this.Find(directoryName) ?? createNodeRecursive(directoryName);
-      FileTree.Node node2 = new FileTree.Node(fullPath);
+      FileTree.Node node2 = new(fullPath);
       node1.AddChild(node2);
       this.BuildBranches(node2);
       this.PushEvent((FileTree.IQueuedEvent) new FileTree.CreatedEvent(node2));
@@ -165,7 +162,7 @@ public class FileTree : IDisposable
       return (FileTree.Node) null;
     path = Path.TrimEndingDirectorySeparator(path);
     string str;
-    for (path = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar); path.StartsWith(Path.DirectorySeparatorChar); path = str.Substring(1, str.Length - 1))
+    for (path = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar); path.StartsWith(Path.DirectorySeparatorChar); path = str[1..])
       str = path;
     if (Path.IsPathFullyQualified(path))
     {
@@ -194,9 +191,12 @@ public class FileTree : IDisposable
     FileTree.DeleteNode((FileTree.Node) this._rootNode);
   }
 
-  public void Update(float deltaTime) => this.PollEvents();
+    public void Update(float deltaTime)
+    {
+        this.PollEvents();
+    }
 
-  [Flags]
+    [Flags]
   public enum Filter
   {
     Directories = 1,
@@ -325,7 +325,7 @@ public class FileTree : IDisposable
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
     public 
     
-    object? Context { get; set; } = (object) null;
+    object Context { get; set; } = (object) null;
 
     public int Depth
     {
@@ -347,7 +347,7 @@ public class FileTree : IDisposable
       this.Name = Path.GetFileName(fullPath);
       this.IsDirectory = Directory.Exists(fullPath);
       this.IsExpanded = this.IsDirectory;
-      this._children = new List<FileTree.Node>();
+      this._children = [];
       this.Parent = (FileTree.Node) null;
     }
 
@@ -388,14 +388,14 @@ public class FileTree : IDisposable
         }
         return (FileTree.Node) null;
       }
-      string strB = path.Substring(0, length);
+      string strB = path[..length];
       foreach (FileTree.Node child in this._children)
       {
         if (string.Compare(child.Name, strB, stringComparison) == 0)
         {
           string str = path;
           int startIndex = length + 1;
-          string path1 = str.Substring(startIndex, str.Length - startIndex);
+          string path1 = str[startIndex..];
           return child.Find(path1, stringComparison);
         }
       }
