@@ -20,20 +20,20 @@ public class MidiFileInfo
 
   public bool IsMidi => MidiFile != null;
 
-  public long SizeKB
+  public double SizeKB
   {
     get
     {
       if (!Exists)
-        return 0;
+        return 0.0;
       try
       {
         FileInfo.Refresh();
-        return (long)(FileInfo.Length / 1000.0);
+        return FileInfo.Length / 1000.0;
       }
       catch
       {
-        return 0;
+        return 0.0;
       }
     }
   }
