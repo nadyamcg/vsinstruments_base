@@ -14,6 +14,16 @@ namespace VSInstrumentsBase.src.Utils;
 /// </summary>
 public static class Log
 {
+  // config flags - server defaults to off to avoid spam, client defaults to on
+  public static bool EnableServerDebug { get; set; } = false;
+  public static bool EnableClientDebug { get; set; } = true;
+
+  private static bool ShouldDebug(ICoreAPI api)
+  {
+    if (api == null) return false;
+    return api.Side == EnumAppSide.Server ? EnableServerDebug : EnableClientDebug;
+  }
+
   /// <summary>
   /// logs a debug message (goes to client-debug.log only).
   /// use for detailed development information not visible to users.
@@ -23,7 +33,8 @@ public static class Log
   /// <param name="message">Message text</param>
   public static void Debug(ICoreAPI api, string tag, string message)
   {
-    api.Logger.Debug($"[{tag}] {message}");
+    if (!ShouldDebug(api)) return;
+    api.Logger.Debug($"[VSInstruments:{tag}] {message}");
   }
 
   /// <summary>
@@ -36,7 +47,8 @@ public static class Log
   /// <param name="args">Format arguments</param>
   public static void Debug(ICoreAPI api, string tag, string format, params object[] args)
   {
-    api.Logger.Debug($"[{tag}] {format}", args);
+    if (!ShouldDebug(api)) return;
+    api.Logger.Debug($"[VSInstruments:{tag}] {format}", args);
   }
 
   /// <summary>
@@ -48,7 +60,7 @@ public static class Log
   /// <param name="message">Message text</param>
   public static void Notification(ICoreAPI api, string tag, string message)
   {
-    api.Logger.Notification($"[{tag}] {message}");
+    api.Logger.Notification($"[VSInstruments:{tag}] {message}");
   }
 
   /// <summary>
@@ -61,7 +73,7 @@ public static class Log
   /// <param name="args">Format arguments</param>
   public static void Notification(ICoreAPI api, string tag, string format, params object[] args)
   {
-    api.Logger.Notification($"[{tag}] {format}", args);
+    api.Logger.Notification($"[VSInstruments:{tag}] {format}", args);
   }
 
   /// <summary>
@@ -73,7 +85,7 @@ public static class Log
   /// <param name="message">Warning text</param>
   public static void Warning(ICoreAPI api, string tag, string message)
   {
-    api.Logger.Warning($"[{tag}] {message}");
+    api.Logger.Warning($"[VSInstruments:{tag}] {message}");
   }
 
   /// <summary>
@@ -86,7 +98,7 @@ public static class Log
   /// <param name="args">Format arguments</param>
   public static void Warning(ICoreAPI api, string tag, string format, params object[] args)
   {
-    api.Logger.Warning($"[{tag}] {format}", args);
+    api.Logger.Warning($"[VSInstruments:{tag}] {format}", args);
   }
 
   /// <summary>
@@ -99,7 +111,7 @@ public static class Log
   /// <param name="exception">The exception to log</param>
   public static void Warning(ICoreAPI api, string tag, string message, Exception exception)
   {
-    api.Logger.Warning($"[{tag}] {message}: {exception.Message}");
+    api.Logger.Warning($"[VSInstruments:{tag}] {message}: {exception.Message}");
     api.Logger.Warning(exception);
   }
 
@@ -112,7 +124,7 @@ public static class Log
   /// <param name="message">Error text</param>
   public static void Error(ICoreAPI api, string tag, string message)
   {
-    api.Logger.Error($"[{tag}] {message}");
+    api.Logger.Error($"[VSInstruments:{tag}] {message}");
   }
 
   /// <summary>
@@ -125,7 +137,7 @@ public static class Log
   /// <param name="args">Format arguments</param>
   public static void Error(ICoreAPI api, string tag, string format, params object[] args)
   {
-    api.Logger.Error($"[{tag}] {format}", args);
+    api.Logger.Error($"[VSInstruments:{tag}] {format}", args);
   }
 
   /// <summary>
@@ -138,7 +150,7 @@ public static class Log
   /// <param name="exception">The exception to log</param>
   public static void Error(ICoreAPI api, string tag, string message, Exception exception)
   {
-    api.Logger.Error($"[{tag}] {message}: {exception.Message}");
+    api.Logger.Error($"[VSInstruments:{tag}] {message}: {exception.Message}");
     api.Logger.Error(exception);
   }
 
@@ -151,7 +163,8 @@ public static class Log
   /// <param name="message">Detailed message</param>
   public static void VerboseDebug(ICoreAPI api, string tag, string message)
   {
-    api.Logger.VerboseDebug($"[{tag}] {message}");
+    if (!ShouldDebug(api)) return;
+    api.Logger.VerboseDebug($"[VSInstruments:{tag}] {message}");
   }
 
   /// <summary>
@@ -164,6 +177,7 @@ public static class Log
   /// <param name="args">Format arguments</param>
   public static void VerboseDebug(ICoreAPI api, string tag, string format, params object[] args)
   {
-    api.Logger.VerboseDebug($"[{tag}] {format}", args);
+    if (!ShouldDebug(api)) return;
+    api.Logger.VerboseDebug($"[VSInstruments:{tag}] {format}", args);
   }
 }
