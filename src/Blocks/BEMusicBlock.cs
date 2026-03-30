@@ -22,6 +22,7 @@ internal class BEMusicBlock : BlockEntityContainer
   private string bandName = "";
   private string songPath = "";
   private string songName = "No MIDI selected!";
+  private int songTrack = 0;
   internal MusicBlockInventory inventory;
   private MusicBlockGUI musicBlockGUI;
   private string instrumentType = "";
@@ -52,15 +53,17 @@ internal class BEMusicBlock : BlockEntityContainer
     tree.SetString("band", this.bandName);
     tree.SetString("file", this.songPath);
     tree.SetString("songname", this.songName);
+    tree.SetInt("track", this.songTrack);
   }
 
   public override void FromTreeAttributes(ITreeAttribute tree, IWorldAccessor worldAccessForResolve)
   {
     base.FromTreeAttributes(tree, worldAccessForResolve);
-    this.blockName = tree.GetString("name", (string) null);
-    this.bandName = tree.GetString("band", (string) null);
-    this.songPath = tree.GetString("file", (string) null);
-    this.songName = tree.GetString("songname", (string) null);
+    this.blockName = tree.GetString("name", "Music Block");
+    this.bandName = tree.GetString("band", "");
+    this.songPath = tree.GetString("file", "");
+    this.songName = tree.GetString("songname", "No MIDI selected!");
+    this.songTrack = tree.GetInt("track", 0);
   }
 
   public override void OnBlockPlaced(ItemStack byItemStack = null)
@@ -81,10 +84,15 @@ internal class BEMusicBlock : BlockEntityContainer
     if (!byPlayer.WorldData.EntityControls.Sneak)
     {
       if (!this.isPlaying)
-        this.StartPlayback(byPlayer);
+      {
+        if (this.StartPlayback(byPlayer))
+          this.isPlaying = true;
+      }
       else
+      {
         this.StopPlayback();
-      this.isPlaying = !this.isPlaying;
+        this.isPlaying = false;
+      }
     }
     else
     {
@@ -106,35 +114,38 @@ internal class BEMusicBlock : BlockEntityContainer
     }
   }
 
-  private void StartPlayback(IPlayer byPlayer)
+  private bool StartPlayback(IPlayer byPlayer)
   {
     if (!(this.blockName != "") || !(this.songName != "") || !(this.instrumentType != "none") || !(this.instrumentType != ""))
-      return;
+      return false;
     int instrumentId = this.GetInstrumentId(this.instrumentType);
     if (instrumentId == -1)
     {
       ((ICoreAPI) (((BlockEntity) this).Api as ICoreServerAPI)).Logger.Error("[MusicBlock] Invalid instrument type: " + this.instrumentType);
+      return false;
     }
-    else
+    ((ICoreAPI) (((BlockEntity) this).Api as ICoreServerAPI)).Logger.Notification($"[MusicBlock] Sending play request to {byPlayer.PlayerName}: {this.songName} (track {this.songTrack})");
+    MusicBlockPlayRequest blockPlayRequest = new MusicBlockPlayRequest()
     {
-      ((ICoreAPI) (((BlockEntity) this).Api as ICoreServerAPI)).Logger.Notification($"[MusicBlock] Sending play request to {byPlayer.PlayerName}: {this.songName}");
-      MusicBlockPlayRequest blockPlayRequest = new MusicBlockPlayRequest()
-      {
-        SongPath = this.songPath,
-        Channel = 0,
-        InstrumentId = instrumentId
-      };
-      (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel("instrumentsMusicBlock").SendPacket<MusicBlockPlayRequest>(blockPlayRequest, new IServerPlayer[1]
-      {
-        byPlayer as IServerPlayer
-      });
-    }
+      SongPath = this.songPath,
+      Channel = this.songTrack,
+      InstrumentId = instrumentId
+    };
+    (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel("instrumentsMusicBlock").SendPacket<MusicBlockPlayRequest>(blockPlayRequest, new IServerPlayer[1]
+    {
+      byPlayer as IServerPlayer
+    });
+    return true;
   }
 
   private void StopPlayback()
   {
-    StopPlaybackRequest stopPlaybackRequest = new StopPlaybackRequest();
-    (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel("PlaybackChannel").BroadcastPacket<StopPlaybackRequest>(stopPlaybackRequest, Array.Empty<IServerPlayer>());
+    StopPlaybackBroadcast stopBroadcast = new StopPlaybackBroadcast()
+    {
+      ClientId = 0,
+      Reason = StopPlaybackReason.Cancelled
+    };
+    (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel("PlaybackChannel").BroadcastPacket<StopPlaybackBroadcast>(stopBroadcast, Array.Empty<IServerPlayer>());
   }
 
   private int GetInstrumentId(string instrumentType)
@@ -186,6 +197,7 @@ internal class BEMusicBlock : BlockEntityContainer
         BinaryReader binaryReader = new BinaryReader((Stream) memoryStream);
         this.songName = binaryReader.ReadString();
         this.songPath = binaryReader.ReadString();
+        this.songTrack = binaryReader.ReadInt32();
         if (this.songPath == null)
           this.songPath = "";
       }

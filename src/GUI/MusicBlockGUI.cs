@@ -110,11 +110,11 @@ public class MusicBlockGUI : GuiDialogBlockEntity
       if (num != 0)
                 _instrumentType = instrumentItem.InstrumentType;
     }
-    new SongSelectGUI(capi, _instrumentType, title: "Select MIDI File for Music Block", onFileSelect:  (songPath, songName) => SetSong(songPath, songName)).TryOpen();
+    new SongSelectGUI(capi, _instrumentType, title: "Select MIDI File for Music Block", onFileSelect:  (songPath, songName, trackIndex) => SetSong(songPath, songName, trackIndex)).TryOpen();
     return true;
   }
 
-  private void SetSong(string songPath, string songName)
+  private void SetSong(string songPath, string songName, int trackIndex)
   {
         SingleComposer.GetDynamicText(nameof (songName)).SetNewText($"Song File: \n\"{songName}\"", false, false, false);
     byte[] array;
@@ -123,6 +123,7 @@ public class MusicBlockGUI : GuiDialogBlockEntity
       BinaryWriter binaryWriter = new( memoryStream);
       binaryWriter.Write(songName);
       binaryWriter.Write(songPath);
+      binaryWriter.Write(trackIndex);
       array = memoryStream.ToArray();
     }
         capi.Network.SendBlockEntityPacket(BlockEntityPosition, 1006, array);

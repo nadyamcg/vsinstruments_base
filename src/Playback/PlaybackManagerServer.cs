@@ -104,8 +104,9 @@ public class PlaybackManagerServer : PlaybackManager
           durationSeconds = MidiFile.Read(serverFile.FullPath, (ReadingSettings) null).ReadTrackDuration(channel);
           flag = true;
         }
-        catch
+        catch (Exception ex)
         {
+          ((ICoreAPI) this.ServerAPI).Logger.Error($"[PlaybackManagerServer] Failed to parse MIDI file {serverFile.FullPath}: {ex.Message}");
           flag = false;
         }
         if (!flag)
