@@ -12,6 +12,7 @@ using Vintagestory.GameContent;
 using VSInstrumentsBase.src.Network.Packets;
 using VSInstrumentsBase.src.Network.Playback;
 using VSInstrumentsBase.src.Types;
+using VSInstrumentsBase.src.Utils;
 
 
 namespace VSInstrumentsBase.src.Blocks;
@@ -131,7 +132,7 @@ internal class BEMusicBlock : BlockEntityContainer
       Channel = this.songTrack,
       InstrumentId = instrumentId
     };
-    (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel("instrumentsMusicBlock").SendPacket<MusicBlockPlayRequest>(blockPlayRequest, new IServerPlayer[1]
+    (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel(Constants.Channel.MusicBlock).SendPacket<MusicBlockPlayRequest>(blockPlayRequest, new IServerPlayer[1]
     {
       byPlayer as IServerPlayer
     });
@@ -145,7 +146,7 @@ internal class BEMusicBlock : BlockEntityContainer
       ClientId = 0,
       Reason = StopPlaybackReason.Cancelled
     };
-    (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel("PlaybackChannel").BroadcastPacket<StopPlaybackBroadcast>(stopBroadcast, Array.Empty<IServerPlayer>());
+    (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel(Constants.Channel.Playback).BroadcastPacket<StopPlaybackBroadcast>(stopBroadcast, Array.Empty<IServerPlayer>());
   }
 
   private int GetInstrumentId(string instrumentType)
@@ -212,35 +213,33 @@ internal class BEMusicBlock : BlockEntityContainer
     ((BlockEntity) this).OnReceivedServerPacket(packetid, data);
     if (packetid != 69)
       return;
-    using (MemoryStream memoryStream = new MemoryStream(data))
+    try
     {
-      BinaryReader binaryReader = new BinaryReader((Stream) memoryStream);
-      binaryReader.ReadString();
-      this.bandName = binaryReader.ReadString();
-      this.songPath = binaryReader.ReadString();
-      TreeAttribute treeAttribute = new TreeAttribute();
-      treeAttribute.FromBytes(binaryReader);
-      this.Inventory.FromTreeAttributes((ITreeAttribute) treeAttribute);
-      this.Inventory.ResolveBlocksOrItems();
-      if (this.musicBlockGUI == null)
+      using (MemoryStream memoryStream = new MemoryStream(data))
       {
-        InstrumentType instrumentType = null;
-        ItemStack itemstack = ((InventoryBase) this.inventory)[0].Itemstack;
-        InstrumentItem instrumentItem = null;
-        int num;
-        if (itemstack != null)
+        BinaryReader binaryReader = new BinaryReader((Stream) memoryStream);
+        binaryReader.ReadString();
+        this.bandName = binaryReader.ReadString();
+        this.songPath = binaryReader.ReadString();
+        TreeAttribute treeAttribute = new TreeAttribute();
+        treeAttribute.FromBytes(binaryReader);
+        this.Inventory.FromTreeAttributes((ITreeAttribute) treeAttribute);
+        this.Inventory.ResolveBlocksOrItems();
+        if (this.musicBlockGUI == null)
         {
-          instrumentItem = itemstack.Item as InstrumentItem;
-          num = instrumentItem != null ? 1 : 0;
+          InstrumentType instrumentType = null;
+          ItemSlot slot = ((InventoryBase) this.inventory)[0];
+          if (slot?.Itemstack?.Item is InstrumentItem instrumentItem)
+            instrumentType = instrumentItem.InstrumentType;
+          this.musicBlockGUI = new MusicBlockGUI(this.DialogTitle, this.Inventory, ((BlockEntity) this).Pos, ((BlockEntity) this).Api as ICoreClientAPI, this.blockName, this.bandName, this.songName, instrumentType);
+          ((GuiDialog) this.musicBlockGUI).OnClosed += (Action) (() => this.musicBlockGUI = (MusicBlockGUI) null);
         }
-        else
-          num = 0;
-        if (num != 0)
-          instrumentType = instrumentItem.InstrumentType;
-        this.musicBlockGUI = new MusicBlockGUI(this.DialogTitle, this.Inventory, ((BlockEntity) this).Pos, ((BlockEntity) this).Api as ICoreClientAPI, this.blockName, this.bandName, this.songName, instrumentType);
-        ((GuiDialog) this.musicBlockGUI).OnClosed += (Action) (() => this.musicBlockGUI = (MusicBlockGUI) null);
+        ((GuiDialog) this.musicBlockGUI).TryOpen();
       }
-      ((GuiDialog) this.musicBlockGUI).TryOpen();
+    }
+    catch (Exception ex)
+    {
+      Log.Error(((BlockEntity) this).Api, "BEMusicBlock", "failed to open music block GUI", ex);
     }
   }
 

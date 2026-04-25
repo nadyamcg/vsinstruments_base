@@ -44,6 +44,23 @@ public static class Constants
     public const byte VelocityMin = 0;
     public const byte VelocityMax = 127;
 
+    // pitch bend
+    public const int PitchBendCenter = 8192;
+    public const float DefaultPitchBendRange = 2f; // semitones (±2 is the MIDI default)
+
+    // modulation / vibrato
+    public const float MaxVibratoSemitones = 0.5f; // depth at CC#1 = 127
+    public const float VibratoFrequency = 5f;      // Hz
+
+    // control change numbers
+    public const byte CC_Modulation = 1;
+    public const byte CC_ChannelVolume = 7;
+    public const byte CC_Expression = 11;
+    public const byte CC_Sustain = 64;
+    public const byte CC_RpnLsb = 100;
+    public const byte CC_RpnMsb = 101;
+    public const byte CC_DataEntry = 6;
+
     public static float NormalizeVelocity(byte velocity)
     {
       if (velocity < VelocityMin) velocity = VelocityMin;

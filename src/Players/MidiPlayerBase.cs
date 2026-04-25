@@ -5,7 +5,6 @@ using Melanchall.DryWetMidi.Core;
 using Melanchall.DryWetMidi.Interaction;
 using VSInstrumentsBase.src.Midi;
 using System;
-using System.Diagnostics;
 using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -34,6 +33,8 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
 
   private int _channel;
 
+  private bool _isPaused;
+
   protected ICoreAPI CoreAPI { get; private set; } = api;
 
   protected InstrumentType InstrumentType { get; private set; } = instrumentType;
@@ -41,6 +42,8 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
   public double Duration => this._duration;
 
   public double ElapsedTime => this._elapsedTime;
+
+  public bool IsPaused => this._isPaused;
 
   public bool IsPlaying => this._midiTrack != null && this._elapsedTime < this._duration;
 
@@ -96,10 +99,27 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     this.Play(midiFile, channel);
   }
 
+  public void Pause()
+  {
+    if (!this.IsPlaying)
+      throw new InvalidOperationException("Cannot pause, player is not playing!");
+    this._isPaused = true;
+  }
+
+  public void Resume()
+  {
+    if (!this._isPaused)
+      throw new InvalidOperationException("Cannot resume, player is not paused!");
+    this._isPaused = false;
+  }
+
   public void Update(float deltaTime)
   {
     if (!this.IsPlaying)
       throw new InvalidOperationException("Player is not playing!");
+
+    if (this._isPaused)
+      return;
 
     this._elapsedTime += (double) deltaTime;
     long elapsedTicks = this.TimeToTicks(this._elapsedTime);
@@ -118,6 +138,9 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
       else
         break;
     }
+
+    // per-frame subclass hook (modulation LFO, etc.)
+    this.OnUpdate(deltaTime);
 
     // grab new source position and update all sounds
     Vec3f sourcePosition = this.GetSourcePosition();
@@ -140,7 +163,20 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
         }
         this.OnNoteOn((Pitch)(byte)(((NoteEvent)noteOnEvent).NoteNumber), Constants.Midi.NormalizeVelocity((byte)(((NoteEvent)noteOnEvent).Velocity)), (int)(byte)(((ChannelEvent)noteOnEvent).Channel), elapsedTime);
         break;
+      case PitchBendEvent pitchBendEvent:
+        this.OnPitchBend((int)(byte)pitchBendEvent.Channel, pitchBendEvent.PitchValue, elapsedTime);
+        break;
+      case ControlChangeEvent controlChangeEvent:
+        this.OnControlChange((int)(byte)controlChangeEvent.Channel, (byte)controlChangeEvent.ControlNumber, (byte)controlChangeEvent.ControlValue, elapsedTime);
+        break;
     }
+  }
+
+  // processes only expression events (pitch bend, CC) — used during seek state rollup
+  private void ProcessExpressionEvent(MidiEvent midiEvent)
+  {
+    if (midiEvent is PitchBendEvent || midiEvent is ControlChangeEvent)
+      this.ProcessMidiEvent(midiEvent);
   }
 
   public void Seek(double time)
@@ -153,8 +189,10 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     if (timeInTicks > durationInTicks)
       throw new ArgumentOutOfRangeException("Player cannot seek beyond its end!");
 
-    // find the nearest event
     TimedEvent[] array = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray<TimedEvent>();
+
+    // default past end in case seek target is beyond all events
+    this._eventIndex = array.Length;
     for (int index = 0; index < array.Length; ++index)
     {
       if (array[index].Time >= timeInTicks)
@@ -162,6 +200,9 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
         this._eventIndex = index;
         break;
       }
+      // replay expression events before the seek point so pitch bend / CC state
+      // is correct when playback resumes — note events are skipped intentionally
+      this.ProcessExpressionEvent(array[index].Event);
     }
 
     this._elapsedTime = this.TicksToTime(timeInTicks);
@@ -206,6 +247,14 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
   protected abstract void OnNoteOn(Pitch pitch, float velocity, int channel, float time);
 
   protected abstract void OnNoteOff(Pitch pitch, float velocity, int channel, float time);
+
+  protected abstract void OnPitchBend(int channel, ushort pitchValue, float time);
+
+  protected abstract void OnControlChange(int channel, byte controlNumber, byte controlValue, float time);
+
+  protected virtual void OnUpdate(float deltaTime)
+  {
+  }
 
   protected virtual void OnStop()
   {
