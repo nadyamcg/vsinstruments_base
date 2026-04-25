@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 
 
 namespace VSInstrumentsBase.src.Playback;
@@ -182,7 +183,7 @@ public class PlaybackManagerClient : PlaybackManager
     this.ClientAPI.ShowChatMessage("Instruments: " + message);
   }
 
-  protected class PlaybackStateClient(ICoreClientAPI api, IClientPlayer player) : 
+  protected class PlaybackStateClient(ICoreClientAPI api, IClientPlayer player) :
     PlaybackManager.PlaybackStateBase((IPlayer) player)
   {
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -190,6 +191,8 @@ public class PlaybackManagerClient : PlaybackManager
 
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
     protected MidiPlayerBase MidiPlayer { get; private set; }
+
+    private string _activeAnimCode;
 
     public void StartPlayback(
       MidiFile midi,
@@ -200,12 +203,18 @@ public class PlaybackManagerClient : PlaybackManager
       this.MidiPlayer = (MidiPlayerBase) new MidiPlayer((ICoreAPI) this.ClientAPI, this.Player, instrumentType);
       this.MidiPlayer.Play(midi, channel);
       this.MidiPlayer.TrySeek(startTime);
+      _activeAnimCode = instrumentType?.Animation;
+      if (_activeAnimCode != null && Player.Entity is EntityPlayer ep)
+        ep.TpAnimManager?.StartAnimation(_activeAnimCode);
     }
 
     public void StopPlayback()
     {
       if (this.MidiPlayer == null)
         return;
+      if (_activeAnimCode != null && Player.Entity is EntityPlayer ep)
+        ep.TpAnimManager?.StopAnimation(_activeAnimCode);
+      _activeAnimCode = null;
       this.MidiPlayer.TryStop();
       this.MidiPlayer.Dispose();
       this.MidiPlayer = (MidiPlayerBase) null;
