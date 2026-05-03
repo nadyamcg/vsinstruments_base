@@ -1,5 +1,7 @@
 using VSInstrumentsBase.src.GUI;
 using VSInstrumentsBase.src.Types;
+using VSInstrumentsBase.src.Core;
+using VSInstrumentsBase.src.Playback;
 using System;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -48,6 +50,13 @@ public class InstrumentItem : Item
 
   public override int GetToolMode(ItemSlot slot, IPlayer byPlayer, BlockSelection blockSel) => 0;
 
+  public override string GetHeldTpIdleAnimation(ItemSlot activeHotbarSlot, Entity forEntity, EnumHand hand)
+  {
+    if (hand == EnumHand.Right && forEntity.Attributes.GetBool("isPlayingInstrument"))
+      return InstrumentType?.Animation;
+    return base.GetHeldTpIdleAnimation(activeHotbarSlot, forEntity, hand);
+  }
+
   public override void OnHeldInteractStart(
     ItemSlot slot,
     EntityAgent byEntity,
@@ -65,24 +74,23 @@ public class InstrumentItem : Item
     else
     {
       handling = EnumHandHandling.PreventDefault;
-      if (this.api is ICoreClientAPI api)
+      if (this.api is ICoreClientAPI capi)
       {
-        api.Logger.Notification("[InstrumentItem] OnHeldInteractStart called - about to open GUI");
-        api.Logger.Notification("[InstrumentItem] InstrumentType: " + (this.InstrumentType?.Name ?? "NULL"));
-        api.Logger.Notification("[InstrumentItem] API type: " + api.GetType().Name);
+        if (byEntity.Attributes.GetBool("isPlayingInstrument"))
+        {
+          var pm = capi.ModLoader.GetModSystem<InstrumentModClient>()?.PlaybackManager as PlaybackManagerClient;
+          pm?.RequestStopPlayback();
+          return;
+        }
 
         try
         {
-          api.Logger.Notification("[InstrumentItem] Creating SongSelectGUI instance...");
-          var gui = new SongSelectGUI(api, this.InstrumentType, title: "Select MIDI File - " + (this.InstrumentType?.Name ?? "Instrument"));
-          api.Logger.Notification("[InstrumentItem] SongSelectGUI created, calling TryOpen...");
+          var gui = new SongSelectGUI(capi, this.InstrumentType, title: "Select MIDI File - " + (this.InstrumentType?.Name ?? "Instrument"));
           gui.TryOpen();
-          api.Logger.Notification("[InstrumentItem] TryOpen completed");
         }
         catch (Exception ex)
         {
-          api.Logger.Error("[InstrumentItem] Exception while opening GUI: " + ex.Message);
-          api.Logger.Error("[InstrumentItem] Stack trace: " + ex.StackTrace);
+          capi.Logger.Error("[InstrumentItem] Exception while opening GUI: " + ex.Message);
         }
       }
     }

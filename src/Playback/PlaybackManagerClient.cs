@@ -9,7 +9,6 @@ using System.Diagnostics;
 using System.IO;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using Vintagestory.API.Common.Entities;
 
 
 namespace VSInstrumentsBase.src.Playback;
@@ -154,7 +153,9 @@ public class PlaybackManagerClient : PlaybackManager
 
   protected void StopPlayback(int clientId, StopPlaybackReason reason)
   {
-    (this.GetPlaybackState(clientId) as PlaybackManagerClient.PlaybackStateClient).StopPlayback();
+    var state = this.GetPlaybackState(clientId) as PlaybackManagerClient.PlaybackStateClient;
+    if (state == null) return;
+    state.StopPlayback();
     if (clientId != ((IPlayer) this.ClientAPI.World.Player).ClientId)
       return;
     this.ShowPlaybackNotification("Playback stopped: " + reason.GetText());
@@ -192,8 +193,6 @@ public class PlaybackManagerClient : PlaybackManager
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
     protected MidiPlayerBase MidiPlayer { get; private set; }
 
-    private string _activeAnimCode;
-
     public void StartPlayback(
       MidiFile midi,
       InstrumentType instrumentType,
@@ -203,18 +202,14 @@ public class PlaybackManagerClient : PlaybackManager
       this.MidiPlayer = (MidiPlayerBase) new MidiPlayer((ICoreAPI) this.ClientAPI, this.Player, instrumentType);
       this.MidiPlayer.Play(midi, channel);
       this.MidiPlayer.TrySeek(startTime);
-      _activeAnimCode = instrumentType?.Animation;
-      if (_activeAnimCode != null && Player.Entity is EntityPlayer ep)
-        ep.TpAnimManager?.StartAnimation(_activeAnimCode);
+      Player.Entity.Attributes.SetBool("isPlayingInstrument", true);
     }
 
     public void StopPlayback()
     {
       if (this.MidiPlayer == null)
         return;
-      if (_activeAnimCode != null && Player.Entity is EntityPlayer ep)
-        ep.TpAnimManager?.StopAnimation(_activeAnimCode);
-      _activeAnimCode = null;
+      Player.Entity.Attributes.SetBool("isPlayingInstrument", false);
       this.MidiPlayer.TryStop();
       this.MidiPlayer.Dispose();
       this.MidiPlayer = (MidiPlayerBase) null;

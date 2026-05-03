@@ -9,8 +9,10 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
+using VSInstrumentsBase.src.Core;
 using VSInstrumentsBase.src.Network.Packets;
 using VSInstrumentsBase.src.Network.Playback;
+using VSInstrumentsBase.src.Playback;
 using VSInstrumentsBase.src.Types;
 using VSInstrumentsBase.src.Utils;
 
@@ -27,6 +29,7 @@ internal class BEMusicBlock : BlockEntityContainer
   internal MusicBlockInventory inventory;
   private MusicBlockGUI musicBlockGUI;
   private string instrumentType = "";
+  private int _playingClientId = -1;
   public bool isPlaying = false;
 
   public BEMusicBlock()
@@ -74,8 +77,8 @@ internal class BEMusicBlock : BlockEntityContainer
 
   public override void OnBlockRemoved()
   {
-    ((BlockEntity) this).OnBlockRemoved();
-    if (((BlockEntity) this).Api.Side != EnumAppSide.Server || !this.isPlaying)
+    base.OnBlockRemoved();
+    if (Api.Side != EnumAppSide.Server || !this.isPlaying)
       return;
     this.StopPlayback();
   }
@@ -119,6 +122,7 @@ internal class BEMusicBlock : BlockEntityContainer
   {
     if (!(this.blockName != "") || !(this.songName != "") || !(this.instrumentType != "none") || !(this.instrumentType != ""))
       return false;
+    _playingClientId = byPlayer.ClientId;
     int instrumentId = this.GetInstrumentId(this.instrumentType);
     if (instrumentId == -1)
     {
@@ -141,12 +145,8 @@ internal class BEMusicBlock : BlockEntityContainer
 
   private void StopPlayback()
   {
-    StopPlaybackBroadcast stopBroadcast = new StopPlaybackBroadcast()
-    {
-      ClientId = 0,
-      Reason = StopPlaybackReason.Cancelled
-    };
-    (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel(Constants.Channel.Playback).BroadcastPacket<StopPlaybackBroadcast>(stopBroadcast, Array.Empty<IServerPlayer>());
+    var pm = ((BlockEntity) this).Api.ModLoader.GetModSystem<InstrumentModServer>()?.PlaybackManager as PlaybackManagerServer;
+    pm?.StopPlayback(_playingClientId, StopPlaybackReason.Cancelled);
   }
 
   private int GetInstrumentId(string instrumentType)
@@ -157,8 +157,13 @@ internal class BEMusicBlock : BlockEntityContainer
 
   public override void OnReceivedClientPacket(IPlayer fromPlayer, int packetid, byte[] data)
   {
-    if (packetid <= 1000)
+    base.OnReceivedClientPacket(fromPlayer, packetid, data);
+    if (packetid < 1000)
+    {
       this.inventory.InvNetworkUtil.HandleClientPacket(fromPlayer, packetid, data);
+      Api.World.BlockAccessor.GetChunkAtBlockPos(Pos).MarkModified();
+      return;
+    }
     if (packetid == 1004)
     {
       if (data != null)
@@ -210,7 +215,7 @@ internal class BEMusicBlock : BlockEntityContainer
 
   public override void OnReceivedServerPacket(int packetid, byte[] data)
   {
-    ((BlockEntity) this).OnReceivedServerPacket(packetid, data);
+    base.OnReceivedServerPacket(packetid, data);
     if (packetid != 69)
       return;
     try
