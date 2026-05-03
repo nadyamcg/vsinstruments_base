@@ -44,7 +44,7 @@ public class InstrumentModClient : InstrumentModBase
     try
     {
       clientApi.Network
-        .GetChannel(Constants.Channel.MusicBlock)
+        .RegisterChannel(Constants.Channel.MusicBlock)
         .RegisterMessageType<MusicBlockPlayRequest>()
         .SetMessageHandler<MusicBlockPlayRequest>(OnMusicBlockPlayRequest);
 

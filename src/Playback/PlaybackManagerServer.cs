@@ -52,13 +52,6 @@ public class PlaybackManagerServer : PlaybackManager
         this.StopPlayback(player.ClientId, StopPlaybackReason.Died);
       }
     };
-    this.ServerAPI.Event.AfterActiveSlotChanged += (player, args) =>
-    {
-      if (this.HasPlaybackState(player.ClientId) && this.GetPlaybackState(player.ClientId).IsPlaying)
-      {
-        this.StopPlayback(player.ClientId, StopPlaybackReason.ChangedSlot);
-      }
-    };
     ((IEventAPI) this.ServerAPI.Event).RegisterGameTickListener(new Action<float>(((PlaybackManager) this).Update), 33, 0);
   }
 
@@ -104,8 +97,9 @@ public class PlaybackManagerServer : PlaybackManager
           durationSeconds = MidiFile.Read(serverFile.FullPath, (ReadingSettings) null).ReadTrackDuration(channel);
           flag = true;
         }
-        catch
+        catch (Exception ex)
         {
+          ((ICoreAPI) this.ServerAPI).Logger.Error($"[PlaybackManagerServer] Failed to parse MIDI file {serverFile.FullPath}: {ex.Message}");
           flag = false;
         }
         if (!flag)
@@ -149,10 +143,11 @@ public class PlaybackManagerServer : PlaybackManager
     this.StopPlayback(((IPlayer) source).ClientId, StopPlaybackReason.Cancelled);
   }
 
-  protected void StopPlayback(int clientId, StopPlaybackReason reason)
+  public void StopPlayback(int clientId, StopPlaybackReason reason)
   {
     PlaybackManagerServer.PlaybackStateServer playbackState = this.GetPlaybackState(clientId) as PlaybackManagerServer.PlaybackStateServer;
-    Debug.Assert(playbackState.IsPlaying);
+    if (playbackState == null || !playbackState.IsPlaying)
+      return;
     this.ServerChannel.BroadcastPacket<StopPlaybackBroadcast>(new StopPlaybackBroadcast()
     {
       ClientId = clientId,

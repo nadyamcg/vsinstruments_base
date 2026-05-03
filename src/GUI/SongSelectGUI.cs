@@ -28,7 +28,7 @@ public class SongSelectGUI : GuiDialog
   private MidiPlayerBase _previewMusicPlayer;
   private readonly InstrumentType _instrumentType;
   private int _activeTrack = -1;
-  private readonly Action<string, string> _fileSelectionCallback;
+  private readonly Action<string, string, int> _fileSelectionCallback;
   private readonly bool _initializationFailed = false;
 
   public override string ToggleKeyCombinationCode => null;
@@ -82,7 +82,7 @@ public class SongSelectGUI : GuiDialog
     Action<string> bandChange = null,
     string bandName = "",
     string title = "Song Selection",
-    Action<string, string> onFileSelect = null)
+    Action<string, string, int> onFileSelect = null)
     : base(capi)
   {
     ((ICoreAPI) capi).Logger.Notification("[SongSelectGUI] Constructor entered");
@@ -469,8 +469,8 @@ public class SongSelectGUI : GuiDialog
         components.Add((RichTextComponentBase) new LinkTextComponent(this.capi, "Select", rightFont, (Action<LinkTextComponent>) (txc =>
         {
           this.capi.Gui.PlaySound("menubutton_press", false, 1f);
-          ((ICoreAPI) this.capi).Logger.Notification($"[SongSelectGUI] Select button clicked: {node.Name} at {node.RelativePath}");
-          this._fileSelectionCallback(node.RelativePath, node.Name);
+          ((ICoreAPI) this.capi).Logger.Notification($"[SongSelectGUI] Select button clicked: {node.Name} at {node.RelativePath}, track {trackIndex}");
+          this._fileSelectionCallback(node.RelativePath, node.Name, trackIndex);
           this.TryClose();
         })));
       else

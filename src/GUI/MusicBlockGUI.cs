@@ -27,42 +27,66 @@ public class MusicBlockGUI : GuiDialogBlockEntity
     InstrumentType instrumentType = null)
     : base(title, inventory, bePos, capi)
   {
-        _instrumentType = instrumentType;
+    _instrumentType = instrumentType;
     if (IsDuplicate)
       return;
-     capi.World.Player.InventoryManager.OpenInventory(Inventory);
-        SetupDialog(blockName, bandName, songName);
+    capi.World.Player.InventoryManager.OpenInventory(Inventory);
+    try
+    {
+      SetupDialog(blockName, bandName, songName);
+    }
+    catch (Exception ex)
+    {
+      capi.Logger.Error("[MusicBlockGUI] failed to compose dialog: " + ex);
+    }
   }
 
   private void SetupDialog(string name, string bandName, string songName)
   {
-    ItemSlot itemSlot = capi.World.Player.InventoryManager.CurrentHoveredSlot;
-    if (itemSlot != null && itemSlot.Inventory == Inventory)
-            capi.Input.TriggerOnMouseLeaveSlot(itemSlot);
+    ItemSlot hoveredSlot = capi.World.Player.InventoryManager.CurrentHoveredSlot;
+    if (hoveredSlot != null && hoveredSlot.Inventory == Inventory)
+      capi.Input.TriggerOnMouseLeaveSlot(hoveredSlot);
     else
-      itemSlot =  null;
-    ElementBounds elementBounds1 = ElementBounds.Fixed(0.0, 0.0, 300.0, 150.0);
-    ElementBounds elementBounds2 = ElementBounds.Fixed(0.0, 30.0, 300.0, 30.0);
-    ElementBounds elementBounds3 = ElementBounds.Fixed(0.0, 60.0, 300.0, 30.0);
-    ElementBounds elementBounds4 = ElementBounds.Fixed(0.0, 100.0, 300.0, 30.0);
-    ElementBounds elementBounds5 = ElementBounds.Fixed(0.0, 130.0, 300.0, 30.0);
-    ElementBounds elementBounds6 = ElementBounds.Fixed(0.0, 180.0, 300.0, 30.0);
-    ElementBounds elementBounds7 = ElementStdBounds.SlotGrid( 0, 10.0, 210.0, 4, 1);
-    ElementBounds elementBounds8 = ElementBounds.Fixed(100.0, 180.0, 200.0, 90.0);
-    ElementBounds elementBounds9 = ElementStdBounds.SlotGrid( 0, 0.0, 210.0, 1, 1);
-    ElementBounds elementBounds10 = ElementBounds.FixedSize(0.0, 0.0).FixedUnder(elementBounds9, 10.0).WithAlignment((EnumDialogArea) 8).WithFixedPadding(10.0, 2.0);
-    ElementBounds elementBounds11 = ElementBounds.Fill.WithFixedPadding(GuiStyle.ElementToDialogPadding);
-    elementBounds11.BothSizing = (ElementSizing) 2;
-    elementBounds11.WithChildren(
-    [
-      elementBounds1
-    ]);
-    ElementBounds elementBounds12 = ElementStdBounds.AutosizedMainDialog.WithAlignment((EnumDialogArea) 10).WithFixedAlignmentOffset(-GuiStyle.DialogToScreenPadding, 0.0);
-        ClearComposers();
-        SingleComposer = capi.Gui.CreateCompo("blockentitymusicblock" + BlockEntityPosition?.ToString(), elementBounds12).AddShadedDialogBG(elementBounds11, true, 5.0, 0.75f).AddDialogTitleBar(DialogTitle, new Action(OnTitleBarClose),  null,  null,  null).BeginChildElements(elementBounds11).AddDynamicText(Lang.Get($"Name: \"{name}\"", []), CairoFont.WhiteSmallText(), elementBounds2, nameof (name)).AddTextInput(elementBounds3, new Action<string>(OnNameChange),  null,  null).AddDynamicText(Lang.Get($"Band Name: \"{bandName}\"", []), CairoFont.WhiteSmallText(), elementBounds4, nameof (bandName)).AddTextInput(elementBounds5, new Action<string>(OnBandNameChange),  null,  null).AddItemSlotGrid(Inventory, new Action<object>(SendInvPacket), 1, new int[1], elementBounds7,  null).AddStaticText(Lang.Get("Instrument", []), CairoFont.WhiteSmallText(), elementBounds6,  null).AddDynamicText(Lang.Get($"Song File: \n\"{songName}\"", []), CairoFont.WhiteSmallText(), elementBounds8, nameof (songName)).AddSmallButton(Lang.Get("Song Select", []), () => OnSongSelect(), elementBounds10, (EnumButtonStyle) 2, "songSelectButton").EndChildElements().Compose(true);
-    if (itemSlot == null)
-      return;
-        SingleComposer.OnMouseMove(new MouseEvent(capi.Input.MouseX, capi.Input.MouseY));
+      hoveredSlot = null;
+
+    ElementBounds mainBounds        = ElementBounds.Fixed(0, 0, 300, 150);
+    ElementBounds nameBounds        = ElementBounds.Fixed(0, 30, 300, 30);
+    ElementBounds nameInputBounds   = ElementBounds.Fixed(0, 60, 300, 30);
+    ElementBounds bandnameBounds    = ElementBounds.Fixed(0, 100, 300, 30);
+    ElementBounds bandnameInputBounds = ElementBounds.Fixed(0, 130, 300, 30);
+    ElementBounds instrumentTextBounds = ElementBounds.Fixed(0, 180, 300, 30);
+    ElementBounds instrumentSlotBounds = ElementStdBounds.SlotGrid(EnumDialogArea.None, 10, 210, 4, 1);
+    ElementBounds songNameBounds    = ElementBounds.Fixed(100, 180, 200, 90);
+    ElementBounds buttonAnchorBounds = ElementStdBounds.SlotGrid(EnumDialogArea.None, 0, 210, 1, 1);
+    ElementBounds sendButtonBounds  = ElementBounds.FixedSize(0, 0).FixedUnder(buttonAnchorBounds, 10).WithAlignment(EnumDialogArea.CenterFixed).WithFixedPadding(10, 2);
+
+    ElementBounds bgBounds = ElementBounds.Fill.WithFixedPadding(GuiStyle.ElementToDialogPadding);
+    bgBounds.BothSizing = ElementSizing.FitToChildren;
+    bgBounds.WithChildren(mainBounds);
+
+    ElementBounds dialogBounds = ElementStdBounds.AutosizedMainDialog
+      .WithAlignment(EnumDialogArea.RightMiddle)
+      .WithFixedAlignmentOffset(-GuiStyle.DialogToScreenPadding, 0);
+
+    ClearComposers();
+    SingleComposer = capi.Gui
+      .CreateCompo("blockentitymusicblock" + BlockEntityPosition?.ToString(), dialogBounds)
+      .AddShadedDialogBG(bgBounds)
+      .AddDialogTitleBar(DialogTitle, OnTitleBarClose)
+      .BeginChildElements(bgBounds)
+        .AddDynamicText(Lang.Get($"Name: \"{name}\""), CairoFont.WhiteSmallText(), nameBounds, "name")
+        .AddTextInput(nameInputBounds, OnNameChange)
+        .AddDynamicText(Lang.Get($"Band Name: \"{bandName}\""), CairoFont.WhiteSmallText(), bandnameBounds, "bandName")
+        .AddTextInput(bandnameInputBounds, OnBandNameChange)
+        .AddItemSlotGrid(Inventory, SendInvPacket, 1, new int[] { 0 }, instrumentSlotBounds)
+        .AddStaticText(Lang.Get("Instrument"), CairoFont.WhiteSmallText(), instrumentTextBounds)
+        .AddDynamicText(Lang.Get($"Song File: \n\"{songName}\""), CairoFont.WhiteSmallText(), songNameBounds, "songName")
+      .AddSmallButton(Lang.Get("Song Select"), OnSongSelect, sendButtonBounds, EnumButtonStyle.Normal, "songSelectButton")
+      .EndChildElements()
+      .Compose();
+
+    if (hoveredSlot != null)
+      SingleComposer.OnMouseMove(new MouseEvent(capi.Input.MouseX, capi.Input.MouseY));
   }
 
   private void OnNameChange(string newName)
@@ -110,11 +134,11 @@ public class MusicBlockGUI : GuiDialogBlockEntity
       if (num != 0)
                 _instrumentType = instrumentItem.InstrumentType;
     }
-    new SongSelectGUI(capi, _instrumentType, title: "Select MIDI File for Music Block", onFileSelect:  (songPath, songName) => SetSong(songPath, songName)).TryOpen();
+    new SongSelectGUI(capi, _instrumentType, title: "Select MIDI File for Music Block", onFileSelect:  (songPath, songName, trackIndex) => SetSong(songPath, songName, trackIndex)).TryOpen();
     return true;
   }
 
-  private void SetSong(string songPath, string songName)
+  private void SetSong(string songPath, string songName, int trackIndex)
   {
         SingleComposer.GetDynamicText(nameof (songName)).SetNewText($"Song File: \n\"{songName}\"", false, false, false);
     byte[] array;
@@ -123,6 +147,7 @@ public class MusicBlockGUI : GuiDialogBlockEntity
       BinaryWriter binaryWriter = new( memoryStream);
       binaryWriter.Write(songName);
       binaryWriter.Write(songPath);
+      binaryWriter.Write(trackIndex);
       array = memoryStream.ToArray();
     }
         capi.Network.SendBlockEntityPacket(BlockEntityPosition, 1006, array);

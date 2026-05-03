@@ -153,7 +153,9 @@ public class PlaybackManagerClient : PlaybackManager
 
   protected void StopPlayback(int clientId, StopPlaybackReason reason)
   {
-    (this.GetPlaybackState(clientId) as PlaybackManagerClient.PlaybackStateClient).StopPlayback();
+    var state = this.GetPlaybackState(clientId) as PlaybackManagerClient.PlaybackStateClient;
+    if (state == null) return;
+    state.StopPlayback();
     if (clientId != ((IPlayer) this.ClientAPI.World.Player).ClientId)
       return;
     this.ShowPlaybackNotification("Playback stopped: " + reason.GetText());
@@ -182,7 +184,7 @@ public class PlaybackManagerClient : PlaybackManager
     this.ClientAPI.ShowChatMessage("Instruments: " + message);
   }
 
-  protected class PlaybackStateClient(ICoreClientAPI api, IClientPlayer player) : 
+  protected class PlaybackStateClient(ICoreClientAPI api, IClientPlayer player) :
     PlaybackManager.PlaybackStateBase((IPlayer) player)
   {
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -200,12 +202,14 @@ public class PlaybackManagerClient : PlaybackManager
       this.MidiPlayer = (MidiPlayerBase) new MidiPlayer((ICoreAPI) this.ClientAPI, this.Player, instrumentType);
       this.MidiPlayer.Play(midi, channel);
       this.MidiPlayer.TrySeek(startTime);
+      Player.Entity.Attributes.SetBool("isPlayingInstrument", true);
     }
 
     public void StopPlayback()
     {
       if (this.MidiPlayer == null)
         return;
+      Player.Entity.Attributes.SetBool("isPlayingInstrument", false);
       this.MidiPlayer.TryStop();
       this.MidiPlayer.Dispose();
       this.MidiPlayer = (MidiPlayerBase) null;

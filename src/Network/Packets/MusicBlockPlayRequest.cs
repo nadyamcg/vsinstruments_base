@@ -3,7 +3,7 @@ using ProtoBuf;
 
 namespace VSInstrumentsBase.src.Network.Packets;
 
-[ProtoContract]
+[ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
 public class MusicBlockPlayRequest
 {
   public string SongPath;
