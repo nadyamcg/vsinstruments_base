@@ -103,7 +103,8 @@ public class InstrumentModClient : InstrumentModBase
       return;
     }
 
-    _playbackManager.RequestStartPlayback(packet.SongPath, packet.Channel, instrumentType);
+    var blockPos = new Vintagestory.API.MathTools.BlockPos(packet.BlockX, packet.BlockY, packet.BlockZ);
+    _playbackManager.RequestStartPlayback(packet.SongPath, packet.Channel, instrumentType, packet.BandName ?? "", blockPos);
   }
 
   private TextCommandResult ParseClientCommand(TextCommandCallingArgs args)

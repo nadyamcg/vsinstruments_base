@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.MathTools;
 
 
 namespace VSInstrumentsBase.src.Playback;
@@ -44,47 +45,77 @@ public class PlaybackManagerClient : PlaybackManager
     {
       if (!this.HasPlaybackState(player.ClientId))
       {
-        this.AddPlaybackState<PlaybackManagerClient.PlaybackStateClient>(new PlaybackManagerClient.PlaybackStateClient(api, player as IClientPlayer));
+        this.AddPlaybackState<PlaybackStateClient>(new PlaybackStateClient(api, player as IClientPlayer));
       }
     };
-    foreach (IPlayer allOnlinePlayer in ((IWorldAccessor) this.ClientAPI.World).AllOnlinePlayers)
+    foreach (IPlayer p in ((IWorldAccessor) this.ClientAPI.World).AllOnlinePlayers)
     {
-      if (!this.HasPlaybackState(allOnlinePlayer.ClientId))
+      if (!this.HasPlaybackState(p.ClientId))
       {
-        this.AddPlaybackState<PlaybackManagerClient.PlaybackStateClient>(new PlaybackManagerClient.PlaybackStateClient(api, allOnlinePlayer as IClientPlayer));
+        this.AddPlaybackState<PlaybackStateClient>(new PlaybackStateClient(api, p as IClientPlayer));
       }
     }
     this.ClientAPI.Event.PlayerLeave += player =>
     {
-      this.RemovePlaybackState<PlaybackManagerClient.PlaybackStateClient>(player.ClientId, out _);
+      this.RemovePlaybackState<PlaybackStateClient>(player.ClientId, out _);
     };
     ((IEventAPI) this.ClientAPI.Event).RegisterGameTickListener(new Action<float>(((PlaybackManager) this).Update), 33, 0);
   }
 
-  public void RequestStartPlayback(string file, int channel, InstrumentType instrumentType)
+  public void RequestStartPlayback(string file, int channel, InstrumentType instrumentType, string bandName = "", BlockPos blockPos = null)
   {
-    this.ClientChannel.SendPacket<StartPlaybackRequest>(new StartPlaybackRequest()
+    var packet = new StartPlaybackRequest()
     {
       File = file,
       Channel = channel,
-      Instrument = instrumentType != null ? instrumentType.ID : -1
-    });
-    ((ICoreAPI) this.ClientAPI).Logger.Notification($"[PlaybackManagerClient] Sent playback request: file={file}, channel={channel}, instrument={instrumentType?.Name ?? "none"}");
+      Instrument = instrumentType != null ? instrumentType.ID : -1,
+      BandName = bandName ?? "",
+      IsBlockSource = blockPos != null,
+      BlockX = blockPos?.X ?? 0,
+      BlockY = blockPos?.Y ?? 0,
+      BlockZ = blockPos?.Z ?? 0
+    };
+    this.ClientChannel.SendPacket(packet);
+    ((ICoreAPI) this.ClientAPI).Logger.Notification($"[PlaybackManagerClient] Sent playback request: file={file}, channel={channel}, instrument={instrumentType?.Name ?? "none"}, band={bandName ?? ""}, block={packet.IsBlockSource}");
   }
 
   public void RequestStopPlayback()
   {
-    this.ClientChannel.SendPacket<StopPlaybackRequest>(new StopPlaybackRequest());
+    this.ClientChannel.SendPacket(new StopPlaybackRequest());
+  }
+
+  // resolves the playback state for a given slot id, lazy-creating a block-slot if needed.
+  protected PlaybackStateClient GetOrCreateBlockState(int slotId, int bx, int by, int bz)
+  {
+    if (this.GetPlaybackState(slotId) is PlaybackStateClient s)
+      return s;
+    var blockState = new PlaybackStateClient(this.ClientAPI, slotId, new Vec3f(bx + 0.5f, by + 0.5f, bz + 0.5f));
+    this.AddPlaybackState<PlaybackStateClient>(blockState);
+    return blockState;
   }
 
   protected void OnStartPlaybackBroadcast(StartPlaybackBroadcast packet)
   {
     long elapsedMilliseconds = ((IWorldAccessor) this.ClientAPI.World).ElapsedMilliseconds;
-    PlaybackManagerClient.PlaybackStateClient state = this.GetPlaybackState(packet.ClientId) as PlaybackManagerClient.PlaybackStateClient;
-    this.ClientFileManager.RequestFile(state.Player, packet.File, (FileManager.RequestFileCallback) ((node, context) =>
+
+    PlaybackStateClient state;
+    if (packet.IsBlockSource)
+      state = this.GetOrCreateBlockState(packet.ClientId, packet.BlockX, packet.BlockY, packet.BlockZ);
+    else
+      state = this.GetPlaybackState(packet.ClientId) as PlaybackStateClient;
+
+    if (state == null)
     {
-      double startTimeSec = (double) (((IWorldAccessor) this.ClientAPI.World).ElapsedMilliseconds - (long) context) / 1000.0;
-      this.StartPlayback(state.Player.ClientId, node, packet.Channel, packet.Instrument, startTimeSec);
+      Log.Error((ICoreAPI) this.ClientAPI, "PlaybackManagerClient", $"no playback state for slot {packet.ClientId}");
+      return;
+    }
+
+    // block-source slots have no Player; fall back to the local client player for the file lookup.
+    IPlayer fileRequestPlayer = state.Player ?? (IPlayer) this.ClientAPI.World.Player;
+    this.ClientFileManager.RequestFile(fileRequestPlayer, packet.File, (FileManager.RequestFileCallback) ((node, context) =>
+    {
+      double startTimeSec = (double) (((IWorldAccessor) this.ClientAPI.World).ElapsedMilliseconds - (long) context) / 1000.0 + packet.StartTimeOffsetSec;
+      this.StartPlayback(state.ClientId, node, packet.Channel, packet.Instrument, startTimeSec);
     }), (object) elapsedMilliseconds);
   }
 
@@ -98,12 +129,11 @@ public class PlaybackManagerClient : PlaybackManager
     var node = this.ClientFileManager.UserTree.Find(packet.File);
     if (node == null)
     {
-      Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient",
-        $"file not found in tree: '{packet.File}'");
+      Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient", $"file not found in tree: '{packet.File}'");
       this.ShowPlaybackErrorMessage($"Could not find file: {Path.GetFileName(packet.File)}");
       return;
     }
-    this.StartPlayback(((IPlayer)this.ClientAPI.World.Player).ClientId, node, packet.Channel, packet.Instrument);
+    this.StartPlayback(((IPlayer)this.ClientAPI.World.Player).ClientId, node, packet.Channel, packet.Instrument, packet.StartTimeOffsetSec);
     this.ShowPlaybackNotification($"Playing track #{packet.Channel:00} of {Path.GetFileNameWithoutExtension(packet.File)}.");
   }
 
@@ -113,7 +143,7 @@ public class PlaybackManagerClient : PlaybackManager
   }
 
   protected void StartPlayback(
-    int clientId,
+    int slotId,
     FileTree.Node node,
     int channel,
     int instrumentTypeId,
@@ -121,28 +151,24 @@ public class PlaybackManagerClient : PlaybackManager
   {
     if (node == null)
     {
-      Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient",
-        $"StartPlayback called with null node for clientId={clientId}");
+      Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient", $"StartPlayback called with null node for slot={slotId}");
       this.ShowPlaybackErrorMessage("Failed to locate MIDI file.");
       return;
     }
 
     try
     {
-      PlaybackManagerClient.PlaybackStateClient playbackState = this.GetPlaybackState(clientId) as PlaybackManagerClient.PlaybackStateClient;
-      if (playbackState == null)
+      if (!(this.GetPlaybackState(slotId) is PlaybackStateClient state))
       {
-        Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient",
-          $"PlaybackState is null for clientId={clientId}");
+        Log.Error((ICoreAPI)this.ClientAPI, "PlaybackManagerClient", $"PlaybackState is null for slot={slotId}");
         this.ShowPlaybackErrorMessage("Player state not found.");
         return;
       }
 
       MidiFile midi = MidiFile.Read(node.FullPath, (ReadingSettings)null);
       InstrumentType instrumentType = InstrumentType.Find(instrumentTypeId);
-      Log.Notification((ICoreAPI)this.ClientAPI, "PlaybackManagerClient",
-        $"Starting playback: clientId={clientId}, file={node.Name}, instrument={instrumentType?.Name ?? "unknown"}");
-      playbackState.StartPlayback(midi, instrumentType, channel, startTimeSec);
+      Log.Notification((ICoreAPI)this.ClientAPI, "PlaybackManagerClient", $"Starting playback: slot={slotId}, file={node.Name}, instrument={instrumentType?.Name ?? "unknown"}");
+      state.StartPlayback(midi, instrumentType, channel, startTimeSec);
     }
     catch (Exception ex)
     {
@@ -151,25 +177,25 @@ public class PlaybackManagerClient : PlaybackManager
     }
   }
 
-  protected void StopPlayback(int clientId, StopPlaybackReason reason)
+  protected void StopPlayback(int slotId, StopPlaybackReason reason)
   {
-    var state = this.GetPlaybackState(clientId) as PlaybackManagerClient.PlaybackStateClient;
-    if (state == null) return;
+    if (!(this.GetPlaybackState(slotId) is PlaybackStateClient state))
+      return;
     state.StopPlayback();
-    if (clientId != ((IPlayer) this.ClientAPI.World.Player).ClientId)
+    if (slotId != ((IPlayer) this.ClientAPI.World.Player).ClientId)
       return;
     this.ShowPlaybackNotification("Playback stopped: " + reason.GetText());
   }
 
   public override void Update(float deltaTime)
   {
-    foreach (PlaybackManager.PlaybackStateBase playbackStateBase in this.PlaybackStates.Values)
+    foreach (var s in this.PlaybackStates.Values)
     {
-      if (playbackStateBase.IsPlaying)
+      if (s.IsPlaying)
       {
-        playbackStateBase.Update(deltaTime);
-        if (playbackStateBase.IsFinished)
-          this.StopPlayback(playbackStateBase.ClientId, StopPlaybackReason.Finished);
+        s.Update(deltaTime);
+        if (s.IsFinished)
+          this.StopPlayback(s.ClientId, StopPlaybackReason.Finished);
       }
     }
   }
@@ -184,35 +210,47 @@ public class PlaybackManagerClient : PlaybackManager
     this.ClientAPI.ShowChatMessage("Instruments: " + message);
   }
 
-  protected class PlaybackStateClient(ICoreClientAPI api, IClientPlayer player) :
-    PlaybackManager.PlaybackStateBase((IPlayer) player)
+  protected class PlaybackStateClient : PlaybackStateBase
   {
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    protected ICoreClientAPI ClientAPI { get; private set; } = api;
+    protected ICoreClientAPI ClientAPI { get; private set; }
 
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
     protected MidiPlayerBase MidiPlayer { get; private set; }
 
-    public void StartPlayback(
-      MidiFile midi,
-      InstrumentType instrumentType,
-      int channel,
-      double startTime)
+    // when set, this state belongs to a music block and sound is emitted from this position.
+    private readonly Vec3f _blockSourcePos;
+
+    public PlaybackStateClient(ICoreClientAPI api, IClientPlayer player) : base((IPlayer) player)
     {
-      this.MidiPlayer = (MidiPlayerBase) new MidiPlayer((ICoreAPI) this.ClientAPI, this.Player, instrumentType);
+      this.ClientAPI = api;
+      this._blockSourcePos = null;
+    }
+
+    public PlaybackStateClient(ICoreClientAPI api, int slotId, Vec3f blockSourcePos) : base(slotId)
+    {
+      this.ClientAPI = api;
+      this._blockSourcePos = blockSourcePos;
+    }
+
+    public void StartPlayback(MidiFile midi, InstrumentType instrumentType, int channel, double startTime)
+    {
+      this.MidiPlayer = new MidiPlayer((ICoreAPI) this.ClientAPI, this.Player, instrumentType, this._blockSourcePos);
       this.MidiPlayer.Play(midi, channel);
       this.MidiPlayer.TrySeek(startTime);
-      Player.Entity.Attributes.SetBool("isPlayingInstrument", true);
+      if (this.Player != null)
+        this.Player.Entity.Attributes.SetBool("isPlayingInstrument", true);
     }
 
     public void StopPlayback()
     {
       if (this.MidiPlayer == null)
         return;
-      Player.Entity.Attributes.SetBool("isPlayingInstrument", false);
+      if (this.Player != null)
+        this.Player.Entity.Attributes.SetBool("isPlayingInstrument", false);
       this.MidiPlayer.TryStop();
       this.MidiPlayer.Dispose();
-      this.MidiPlayer = (MidiPlayerBase) null;
+      this.MidiPlayer = null;
     }
 
     public override bool IsPlaying => this.MidiPlayer != null && this.MidiPlayer.IsPlaying;

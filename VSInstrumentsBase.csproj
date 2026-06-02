@@ -5,7 +5,19 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>bin\$(Configuration)\Mods\mod</OutputPath>
     <AssemblyName>vsinstruments_base</AssemblyName>
+    <!-- pinned for compat with vsinstruments_sf2pack which references 1.0.0.0 -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="build\**" />
+    <EmbeddedResource Remove="build\**" />
+    <None Remove="build\**" />
+    <Compile Remove="release\**" />
+    <EmbeddedResource Remove="release\**" />
+    <None Remove="release\**" />
+  </ItemGroup>
 
   <!-- cross-platform Vintage Story installation detection -->
   <PropertyGroup>

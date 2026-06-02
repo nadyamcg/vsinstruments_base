@@ -11,7 +11,7 @@ using Vintagestory.API.MathTools;
 
 namespace VSInstrumentsBase.src.Players;
 
-public class MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentType) :
+public class MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentType, Vec3f fixedPosition = null) :
   MidiPlayerBase(api, instrumentType),
   IDisposable
 {
@@ -20,6 +20,7 @@ public class MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentT
   private readonly float[] _soundBaseVolumes = new float[Constants.Note.NoteCount];
 
   private readonly IPlayer _source = source;
+  private readonly Vec3f _fixedPosition = fixedPosition;
 
   // pitch bend state
   private float _pitchBendRange = Constants.Midi.DefaultPitchBendRange;
@@ -207,12 +208,14 @@ public class MidiPlayer(ICoreAPI api, IPlayer source, InstrumentType instrumentT
 
   protected override bool IsSourceValid()
   {
+    if (_fixedPosition != null)
+      return true;
     return _source != null && _source.Entity != null;
   }
 
   protected override Vec3f GetSourcePosition()
   {
-    return _source.Entity.Pos.XYZFloat;
+    return _fixedPosition ?? _source.Entity.Pos.XYZFloat;
   }
 
   protected override void SetPosition(Vec3f sourcePosition)

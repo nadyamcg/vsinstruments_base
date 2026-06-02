@@ -20,5 +20,6 @@ namespace VSInstrumentsBase.src.Network.Playback
 		// Summary:
 		//     The unique identifier of instrument type used.
 		public int Instrument;
+		public double StartTimeOffsetSec;
 	}
 }
