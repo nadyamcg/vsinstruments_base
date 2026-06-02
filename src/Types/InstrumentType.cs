@@ -37,11 +37,8 @@ public abstract class InstrumentType(string name, string animation)
 
   public static void UnregisterAll()
   {
-    foreach (InstrumentType instrumentType in new InstrumentType[InstrumentType._instrumentTypes.Count])
-    {
-      if (instrumentType != null && InstrumentType._instrumentTypes.Remove(instrumentType._id))
-        instrumentType.Cleanup();
-    }
+    foreach (InstrumentType instrumentType in InstrumentType._instrumentTypes.Values)
+      instrumentType.Cleanup();
     InstrumentType._instrumentTypes.Clear();
   }
 
