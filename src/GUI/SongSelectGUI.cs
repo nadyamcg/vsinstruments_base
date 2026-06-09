@@ -30,6 +30,7 @@ public class SongSelectGUI : GuiDialog
   private int _activeTrack = -1;
   private readonly Action<string, string, int> _fileSelectionCallback;
   private readonly bool _initializationFailed = false;
+  private string _bandName = "";
 
   public override string ToggleKeyCombinationCode => null;
 
@@ -110,6 +111,7 @@ public class SongSelectGUI : GuiDialog
     this._previewMusicPlayer = (MidiPlayerBase) new MidiPlayer((ICoreAPI) capi, (IPlayer) capi.World.Player, instrumentType);
     this._instrumentType = instrumentType;
     this.BandNameChange = bandChange;
+    this._bandName = bandName ?? "";
     this.SetupDialog(title, bandName);
     this.SetupSelection();
   }
@@ -193,7 +195,10 @@ public class SongSelectGUI : GuiDialog
     ElementBounds elementBounds1 = ElementStdBounds.AutosizedMainDialog.WithAlignment((EnumDialogArea) 6);
     ElementBounds elementBounds2 = ElementBounds.Fixed(0.5 * elementToDialogPadding, elementToDialogPadding + 8.0, 750.0 + 4.0 * elementToDialogPadding, 32.0);
     ElementBounds elementBounds3 = ElementBounds.Fixed(0.0, elementToDialogPadding + 4.0, 300.0, 32.0).FixedRightOf(elementBounds2, 0.0);
-    ElementBounds elementBounds4 = ElementBounds.Fixed(elementToDialogPadding, elementToDialogPadding + 40.0 + 10.0, 500.0, 600.0);
+    // band row: label + input, sitting below the title bar.
+    ElementBounds bandLabelBounds = ElementBounds.Fixed(0.5 * elementToDialogPadding, elementToDialogPadding + 44.0, 60.0, 32.0);
+    ElementBounds bandInputBounds = ElementBounds.Fixed(0.5 * elementToDialogPadding + 70.0, elementToDialogPadding + 44.0, 240.0, 32.0);
+    ElementBounds elementBounds4 = ElementBounds.Fixed(elementToDialogPadding, elementToDialogPadding + 80.0 + 10.0, 500.0, 600.0);
     ElementBounds elementBounds5 = ElementBounds.Fixed(-0.5 * elementToDialogPadding, 0.0, 250.0, 600.0).WithFixedOffset(elementBounds4.fixedX, elementBounds4.fixedY);
     ElementBounds bounds1 = ElementBounds.Fixed(elementBounds5.fixedX + elementBounds5.fixedWidth, elementBounds5.fixedY, 20.0, elementBounds5.fixedHeight);
     ElementBounds contentBound1 = ElementBounds.Fixed(bounds1.fixedX + bounds1.fixedWidth + elementToDialogPadding, elementBounds4.fixedY, 500.0, 600.0);
@@ -206,6 +211,8 @@ public class SongSelectGUI : GuiDialog
     [
       elementBounds2,
       elementBounds3,
+      bandLabelBounds,
+      bandInputBounds,
       elementBounds5,
       bounds1,
       contentBound1,
@@ -219,6 +226,8 @@ public class SongSelectGUI : GuiDialog
         .BeginChildElements(elementBounds6)
         .AddDynamicText(".", CairoFont.WhiteDetailText(), elementBounds2, "locationText")
         .AddTextInput(elementBounds3, new Action<string>(this.FilterContent), CairoFont.WhiteDetailText(), "searchTextInput")
+        .AddStaticText("Band:", CairoFont.WhiteDetailText(), bandLabelBounds)
+        .AddTextInput(bandInputBounds, new Action<string>(this.OnBandInput), CairoFont.WhiteDetailText(), "bandInput")
         .BeginClip(elementBounds5.ForkBoundingParent(0.0, 0.0, 0.0, 0.0))
         .AddInset(elementBounds5, 3, 0.85f)
         .AddFlatListEx(elementBounds5, new Action<int>(this.OnTreeElementLeftClick), new Action<int>(this.OnTreeExpandLeftClick), Unsafe.As<List<IFlatListItem>>((object) this._treeNodes), "treeList")
@@ -235,9 +244,14 @@ public class SongSelectGUI : GuiDialog
         .AddVerticalScrollbarEx((Action<float>) (value => this.OnScrollBarValueChanged(value, this.DetailsText)), bounds3, contentBound2, "detailsScrollBar")
         .EndChildElements();
     this.SingleComposer = composer.Compose(true);
-    if (this.BandNameChange != null)
-      this.UpdateBand(bandName);
+    if (!string.IsNullOrEmpty(bandName))
+      ((GuiElementEditableTextBase) this.SingleComposer.GetTextInput("bandInput")).SetValue(bandName, true);
     this.SelectTreeNode((FileTree.Node) this._fileTree.Root);
+  }
+
+  private void OnBandInput(string value)
+  {
+    this._bandName = value ?? "";
   }
 
   private void OnScrollBarValueChanged(float value, GuiElementFlatList list)
@@ -476,8 +490,8 @@ public class SongSelectGUI : GuiDialog
       else
         components.Add((RichTextComponentBase) new LinkTextComponent(this.capi, "Play", rightFont, (Action<LinkTextComponent>) (txc =>
         {
-          ((ICoreAPI) this.capi).Logger.Notification($"[SongSelectGUI] Play button clicked: {node.Name}, track {trackIndex}, instrument {this._instrumentType?.Name ?? "unknown"}");
-          ((PlaybackManagerClient)this.capi.GetInstrumentMod().PlaybackManager).RequestStartPlayback(node.RelativePath, trackIndex, this._instrumentType);
+          ((ICoreAPI) this.capi).Logger.Notification($"[SongSelectGUI] Play button clicked: {node.Name}, track {trackIndex}, instrument {this._instrumentType?.Name ?? "unknown"}, band={this._bandName}");
+          ((PlaybackManagerClient)this.capi.GetInstrumentMod().PlaybackManager).RequestStartPlayback(node.RelativePath, trackIndex, this._instrumentType, this._bandName);
           this.TryClose();
         })));
       components.Add((RichTextComponentBase) new RichTextComponent(this.capi, Environment.NewLine, leftFont));

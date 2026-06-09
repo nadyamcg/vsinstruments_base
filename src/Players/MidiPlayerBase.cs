@@ -172,7 +172,8 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     }
   }
 
-  // processes only expression events (pitch bend, CC) — used during seek state rollup
+  // processes only expression events (pitch bend, CC)
+  // used during seek state rollup
   private void ProcessExpressionEvent(MidiEvent midiEvent)
   {
     if (midiEvent is PitchBendEvent || midiEvent is ControlChangeEvent)
@@ -201,7 +202,8 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
         break;
       }
       // replay expression events before the seek point so pitch bend / CC state
-      // is correct when playback resumes — note events are skipped intentionally
+      // is correct when playback resumes
+      // note events are skipped intentionally
       this.ProcessExpressionEvent(array[index].Event);
     }
 

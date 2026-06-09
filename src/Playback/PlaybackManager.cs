@@ -44,12 +44,25 @@ public abstract class PlaybackManager(ICoreAPI api, FileManager fileManager)
     return playbackState != null && playbackState.IsPlaying;
   }
 
-  protected abstract class PlaybackStateBase(IPlayer player)
+  protected abstract class PlaybackStateBase
   {
     [field: DebuggerBrowsable(DebuggerBrowsableState.Never)]
-    public IPlayer Player { get; private set; } = player;
+    public IPlayer Player { get; private set; }
 
-    public int ClientId => this.Player.ClientId;
+    public int ClientId { get; private set; }
+
+    protected PlaybackStateBase(IPlayer player)
+    {
+      this.Player = player;
+      this.ClientId = player.ClientId;
+    }
+
+    // used for block-source playback slots that have no player.
+    protected PlaybackStateBase(int slotId)
+    {
+      this.Player = null;
+      this.ClientId = slotId;
+    }
 
     public abstract bool IsPlaying { get; }
 

@@ -37,11 +37,8 @@ public abstract class InstrumentType(string name, string animation)
 
   public static void UnregisterAll()
   {
-    foreach (InstrumentType instrumentType in new InstrumentType[InstrumentType._instrumentTypes.Count])
-    {
-      if (instrumentType != null && InstrumentType._instrumentTypes.Remove(instrumentType._id))
-        instrumentType.Cleanup();
-    }
+    foreach (InstrumentType instrumentType in InstrumentType._instrumentTypes.Values)
+      instrumentType.Cleanup();
     InstrumentType._instrumentTypes.Clear();
   }
 
@@ -79,7 +76,14 @@ public abstract class InstrumentType(string name, string animation)
       this._toolModes[0].WithIcon(api, api.Gui.LoadSvgWithPadding(new AssetLocation("instruments", "textures/icons/1.svg"), 48 , 48 , 5, new int?(-1)));
       this._toolModes[0].TexturePremultipliedAlpha = false;
     }
-    this._noteMap = (NoteMapping<string>) new NoteMappingLegacy("sounds/" + this.Name);
+    this._noteMap = this.CreateNoteMap();
+  }
+
+  // subclasses can override to choose a different sample layout.
+  // default is the legacy a0..a7 anchor layout used by pitched instruments.
+  protected virtual NoteMapping<string> CreateNoteMap()
+  {
+    return new NoteMappingLegacy("sounds/" + this.Name);
   }
 
   internal static void UnregisterType(Type instanceType)

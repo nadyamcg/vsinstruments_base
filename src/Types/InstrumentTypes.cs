@@ -1,4 +1,5 @@
 using Vintagestory.API.Common;
+using VSInstrumentsBase.src.Mapping;
 
 
 namespace VSInstrumentsBase.src.Types;
@@ -101,6 +102,10 @@ public static class InstrumentTypes
       : base("drum", "holdbothhandslarge")
     {
     }
+
+    // drum samples are named <midi-note>.ogg, not a0..a7.
+    protected override NoteMapping<string> CreateNoteMap()
+      => new NoteMappingDrum("sounds/" + this.Name);
   }
 
   public class SteelDrum : InstrumentType

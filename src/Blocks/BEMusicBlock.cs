@@ -29,7 +29,7 @@ internal class BEMusicBlock : BlockEntityContainer
   internal MusicBlockInventory inventory;
   private MusicBlockGUI musicBlockGUI;
   private string instrumentType = "";
-  private int _playingClientId = -1;
+  private int _slotId = 0;
   public bool isPlaying = false;
 
   public BEMusicBlock()
@@ -122,19 +122,24 @@ internal class BEMusicBlock : BlockEntityContainer
   {
     if (!(this.blockName != "") || !(this.songName != "") || !(this.instrumentType != "none") || !(this.instrumentType != ""))
       return false;
-    _playingClientId = byPlayer.ClientId;
     int instrumentId = this.GetInstrumentId(this.instrumentType);
     if (instrumentId == -1)
     {
       ((ICoreAPI) (((BlockEntity) this).Api as ICoreServerAPI)).Logger.Error("[MusicBlock] Invalid instrument type: " + this.instrumentType);
       return false;
     }
+    var pos = ((BlockEntity) this).Pos;
+    this._slotId = PlaybackManagerServer.BlockPosToSlotId(pos.X, pos.Y, pos.Z);
     ((ICoreAPI) (((BlockEntity) this).Api as ICoreServerAPI)).Logger.Notification($"[MusicBlock] Sending play request to {byPlayer.PlayerName}: {this.songName} (track {this.songTrack})");
     MusicBlockPlayRequest blockPlayRequest = new MusicBlockPlayRequest()
     {
       SongPath = this.songPath,
       Channel = this.songTrack,
-      InstrumentId = instrumentId
+      InstrumentId = instrumentId,
+      BandName = this.bandName ?? "",
+      BlockX = pos.X,
+      BlockY = pos.Y,
+      BlockZ = pos.Z
     };
     (((BlockEntity) this).Api as ICoreServerAPI).Network.GetChannel(Constants.Channel.MusicBlock).SendPacket<MusicBlockPlayRequest>(blockPlayRequest, new IServerPlayer[1]
     {
@@ -146,7 +151,7 @@ internal class BEMusicBlock : BlockEntityContainer
   private void StopPlayback()
   {
     var pm = ((BlockEntity) this).Api.ModLoader.GetModSystem<InstrumentModServer>()?.PlaybackManager as PlaybackManagerServer;
-    pm?.StopPlayback(_playingClientId, StopPlaybackReason.Cancelled);
+    pm?.StopPlayback(_slotId, StopPlaybackReason.Cancelled);
   }
 
   private int GetInstrumentId(string instrumentType)

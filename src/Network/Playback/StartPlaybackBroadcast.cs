@@ -1,28 +1,20 @@
-﻿using ProtoBuf;
+using ProtoBuf;
 
 namespace VSInstrumentsBase.src.Network.Playback
 {
-	//
-	// Summary:
-	//     Packet broadcast to clients from the server informing them about a playback start.
 	[ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
 	public class StartPlaybackBroadcast
 	{
-		//
-		// Summary:
-		//     Id of the player that started the playback.
+		// playback slot id. for player playback this is the player's client id.
+		// for music block playback this is a synthetic id derived from block position.
 		public int ClientId;
-		//
-		// Summary:
-		//     Relative path to the file to be played.
 		public string File;
-		//
-		// Summary:
-		//     The channel index to start playing.
 		public int Channel;
-		//
-		// Summary:
-		//     The unique identifier of instrument type used.
 		public int Instrument;
+		public double StartTimeOffsetSec;
+		public bool IsBlockSource;
+		public int BlockX;
+		public int BlockY;
+		public int BlockZ;
 	}
 }

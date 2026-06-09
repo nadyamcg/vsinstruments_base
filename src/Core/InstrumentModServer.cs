@@ -59,7 +59,12 @@ public class InstrumentModServer : InstrumentModBase
     {
       File = packet.SongPath,
       Channel = packet.Channel,
-      Instrument = packet.InstrumentId
+      Instrument = packet.InstrumentId,
+      BandName = packet.BandName ?? "",
+      IsBlockSource = true,
+      BlockX = packet.BlockX,
+      BlockY = packet.BlockY,
+      BlockZ = packet.BlockZ
     };
 
     MethodInfo method = _playbackManager.GetType().GetMethod("OnStartPlaybackRequest", BindingFlags.Instance | BindingFlags.NonPublic);
