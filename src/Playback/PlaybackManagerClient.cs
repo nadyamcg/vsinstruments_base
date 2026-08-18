@@ -59,7 +59,29 @@ public class PlaybackManagerClient : PlaybackManager
     {
       this.RemovePlaybackState<PlaybackStateClient>(player.ClientId, out _);
     };
-    ((IEventAPI) this.ClientAPI.Event).RegisterGameTickListener(new Action<float>(((PlaybackManager) this).Update), 33, 0);
+    this._renderer = new PlaybackRenderer(this);
+    this.ClientAPI.Event.RegisterRenderer(this._renderer, EnumRenderStage.Before, "vsinstruments-playback");
+  }
+
+  private readonly PlaybackRenderer _renderer;
+
+  public void UnregisterRenderer()
+  {
+    if (this._renderer != null)
+      this.ClientAPI.Event.UnregisterRenderer(this._renderer, EnumRenderStage.Before);
+  }
+
+  private class PlaybackRenderer(PlaybackManagerClient owner) : IRenderer
+  {
+    public double RenderOrder => 0.0;
+
+    public int RenderRange => 0;
+
+    public void OnRenderFrame(float deltaTime, EnumRenderStage stage) => owner.Update(deltaTime);
+
+    public void Dispose()
+    {
+    }
   }
 
   public void RequestStartPlayback(string file, int channel, InstrumentType instrumentType, string bandName = "", BlockPos blockPos = null)

@@ -46,6 +46,12 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
 
   private long _pausedAtMs;
 
+  // wall-clock time of the previous Update, and a smoothed estimate of how far
+  // apart updates actually land. used to centre note dispatch, see Update.
+  private long _lastUpdateMs;
+
+  private double _updateIntervalSec;
+
   protected ICoreAPI CoreAPI { get; private set; } = api;
 
   protected InstrumentType InstrumentType { get; private set; } = instrumentType;
@@ -114,6 +120,8 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     this._seekOffsetSec = 0.0;
     this._anchorMs = ((IWorldAccessor) this.CoreAPI.World).ElapsedMilliseconds;
     this._pausedAtMs = 0L;
+    this._lastUpdateMs = 0L;
+    this._updateIntervalSec = 0.0;
   }
 
   public void Play(string midiFilePath, int channel)
@@ -140,6 +148,9 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     this._anchorMs += (now - this._pausedAtMs);
     this._pausedAtMs = 0L;
     this._isPaused = false;
+    // the pause gap is not a frame time; drop it rather than let it skew the
+    // interval estimate. the smoothed value itself is still valid.
+    this._lastUpdateMs = 0L;
   }
 
   public void Update(float deltaTime)
@@ -151,10 +162,24 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
       return;
 
     // derive elapsed time from the world clock anchor instead of accumulating
-    // deltaTime. this keeps multiple players (whether multiple band blocks on
-    // one client, or instances across clients) locked to a shared monotonic
-    // time-base and eliminates per-instance float drift.
+    // deltaTime.
     long nowMs = ((IWorldAccessor) this.CoreAPI.World).ElapsedMilliseconds;
+
+    // track how far apart updates actually land. this is measured rather than
+    // assumed because the render loop's frame time varies.
+    if (this._lastUpdateMs != 0L)
+    {
+      double observed = (double) (nowMs - this._lastUpdateMs) / 1000.0;
+      // ignore hitches
+      if (observed > 0.0 && observed < 0.5)
+      {
+        this._updateIntervalSec = this._updateIntervalSec <= 0.0
+          ? observed
+          : this._updateIntervalSec * 0.9 + observed * 0.1;
+      }
+    }
+    this._lastUpdateMs = nowMs;
+
     this._elapsedTime = this._seekOffsetSec + (double) (nowMs - this._anchorMs) / 1000.0;
     long elapsedTicks = this.TimeToTicks(this._elapsedTime);
 
@@ -162,12 +187,19 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     if (elapsedTicks > (long) this._ticksDuration)
       this._elapsedTime = this._duration;
 
+    // a note can only ever be started on an update boundary, so dispatching on
+    // "time has passed" alone makes every note late by up to a full interval,
+    // and by a different amount each time. reaching half an interval ahead
+    // centres that error on zero instead of skewing it entirely late, and it
+    // keeps clients running at different framerates in phase with each other.
+    long dispatchTicks = this.TimeToTicks(this._elapsedTime + this._updateIntervalSec * 0.5);
+
     // process all MIDI events that should occur at this time
     TimedEvent[] array = this._events;
     for (; this._eventIndex < array.Length; ++this._eventIndex)
     {
       TimedEvent timedEvent = array[this._eventIndex];
-      if (timedEvent.Time <= elapsedTicks)
+      if (timedEvent.Time <= dispatchTicks)
         this.ProcessMidiEvent(timedEvent.Event);
       else
         break;
@@ -277,6 +309,8 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     this._seekOffsetSec = 0.0;
     this._anchorMs = 0L;
     this._pausedAtMs = 0L;
+    this._lastUpdateMs = 0L;
+    this._updateIntervalSec = 0.0;
 
     this.OnStop();
   }
