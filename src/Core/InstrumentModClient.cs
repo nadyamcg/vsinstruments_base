@@ -41,6 +41,9 @@ public class InstrumentModClient : InstrumentModBase
     _playbackManager = new PlaybackManagerClient(api, _fileManager);
     api.Logger.Debug("[InstrumentModClient] PlaybackManager created");
 
+    api.Event.AfterActiveSlotChanged += OnAfterActiveSlotChanged;
+    api.Logger.Debug("[InstrumentModClient] Active slot listener registered");
+
     try
     {
       clientApi.Network
@@ -75,9 +78,28 @@ public class InstrumentModClient : InstrumentModBase
     api.Logger.Notification("[InstrumentModClient] Client-side initialization complete!");
   }
 
+  // stops the local player's performance when they select a different hotbar slot.
+  private void OnAfterActiveSlotChanged(ActiveSlotChangeEventArgs args)
+  {
+    if (args == null || args.FromSlot == args.ToSlot)
+      return;
+
+    IClientPlayer player = clientApi?.World?.Player;
+    if (player == null || _playbackManager == null)
+      return;
+
+    if (!_playbackManager.IsPlaying(player.ClientId))
+      return;
+
+    _playbackManager.RequestStopPlayback();
+  }
+
   public override void Dispose()
   {
     base.Dispose();
+    if (clientApi != null)
+      clientApi.Event.AfterActiveSlotChanged -= OnAfterActiveSlotChanged;
+    _playbackManager?.UnregisterRenderer();
     if (listenerIDClient != -1)
     {
       clientApi.Event.UnregisterGameTickListener(listenerIDClient);

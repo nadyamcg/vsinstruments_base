@@ -104,14 +104,6 @@ public class InstrumentItem : Item
     return isClient ? ((Entity) entity).World as IClientWorldAccessor : (IClientWorldAccessor) null;
   }
 
-  private void ChangeFromInstrument(ActiveSlotChangeEventArgs args)
-  {
-    this.capi.Event.AfterActiveSlotChanged -= new Action<ActiveSlotChangeEventArgs>(this.ChangeFromInstrument);
-    if (!Definitions.Instance.IsPlaying())
-      return;
-    Definitions.Instance.SetIsPlaying(false);
-  }
-
   private void SetPlayMode(ItemSlot slot, PlayMode playMode)
   {
     slot.Itemstack.Attributes.SetInt("toolMode", (int) playMode);
