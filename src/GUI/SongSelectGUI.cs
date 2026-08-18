@@ -251,7 +251,13 @@ public class SongSelectGUI : GuiDialog
 
   private void OnBandInput(string value)
   {
-    this._bandName = value ?? "";
+    value ??= "";
+    if (value == this._bandName)
+      return;
+
+    this._bandName = value;
+    // hand the value back to whoever opened the dialog so it outlives instance.
+    this.BandNameChange?.Invoke(this._bandName);
   }
 
   private void OnScrollBarValueChanged(float value, GuiElementFlatList list)

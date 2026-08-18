@@ -85,7 +85,13 @@ public class InstrumentItem : Item
 
         try
         {
-          var gui = new SongSelectGUI(capi, this.InstrumentType, title: "Select MIDI File - " + (this.InstrumentType?.Name ?? "Instrument"));
+          // the band name is remembered client-side and re-seeded on every open
+          var gui = new SongSelectGUI(
+            capi,
+            this.InstrumentType,
+            bandChange: band => Definitions.Instance.SetBandName(band),
+            bandName: Definitions.Instance.GetBandName(),
+            title: "Select MIDI File - " + (this.InstrumentType?.Name ?? "Instrument"));
           gui.TryOpen();
         }
         catch (Exception ex)

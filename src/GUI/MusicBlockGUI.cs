@@ -16,6 +16,13 @@ public class MusicBlockGUI : GuiDialogBlockEntity
 {
   private InstrumentType _instrumentType;
 
+  // last known band name for this block
+  private string _bandName = "";
+
+  // set while the dialog seeds its own text inputs, so the change handlers do
+  // not treat the seeding as user input and echo it back to the server.
+  private bool _seedingInputs;
+
   public MusicBlockGUI(
     string title,
     InventoryBase inventory,
@@ -75,9 +82,9 @@ public class MusicBlockGUI : GuiDialogBlockEntity
       .AddDialogTitleBar(DialogTitle, OnTitleBarClose)
       .BeginChildElements(bgBounds)
         .AddDynamicText(Lang.Get($"Name: \"{name}\""), CairoFont.WhiteSmallText(), nameBounds, "name")
-        .AddTextInput(nameInputBounds, OnNameChange)
+        .AddTextInput(nameInputBounds, OnNameChange, null, "nameInput")
         .AddDynamicText(Lang.Get($"Band Name: \"{bandName}\""), CairoFont.WhiteSmallText(), bandnameBounds, "bandName")
-        .AddTextInput(bandnameInputBounds, OnBandNameChange)
+        .AddTextInput(bandnameInputBounds, OnBandNameChange, null, "bandNameInput")
         .AddItemSlotGrid(Inventory, SendInvPacket, 1, new int[] { 0 }, instrumentSlotBounds)
         .AddStaticText(Lang.Get("Instrument"), CairoFont.WhiteSmallText(), instrumentTextBounds)
         .AddDynamicText(Lang.Get($"Song File: \n\"{songName}\""), CairoFont.WhiteSmallText(), songNameBounds, "songName")
@@ -85,12 +92,37 @@ public class MusicBlockGUI : GuiDialogBlockEntity
       .EndChildElements()
       .Compose();
 
+    _bandName = bandName ?? "";
+    SeedTextInput("nameInput", name);
+    SeedTextInput("bandNameInput", _bandName);
+
     if (hoveredSlot != null)
       SingleComposer.OnMouseMove(new MouseEvent(capi.Input.MouseX, capi.Input.MouseY));
   }
 
+  private void SeedTextInput(string key, string value)
+  {
+    if (string.IsNullOrEmpty(value))
+      return;
+
+    if (SingleComposer.GetTextInput(key) is not GuiElementEditableTextBase input)
+      return;
+
+    _seedingInputs = true;
+    try
+    {
+      input.SetValue(value, true);
+    }
+    finally
+    {
+      _seedingInputs = false;
+    }
+  }
+
   private void OnNameChange(string newName)
   {
+    if (_seedingInputs)
+      return;
     string str = !(newName != "") ? "Please give me a name!" : $"Name: \"{newName}\"";
         SingleComposer.GetDynamicText("name").SetNewText(str, false, false, false);
     if (!(newName != ""))
@@ -106,6 +138,15 @@ public class MusicBlockGUI : GuiDialogBlockEntity
 
   private void OnBandNameChange(string newBand)
   {
+    if (_seedingInputs)
+      return;
+    ApplyBandName(newBand);
+  }
+
+  private void ApplyBandName(string newBand)
+  {
+    newBand ??= "";
+    _bandName = newBand;
     string str = !(newBand != "") ? "No Band" : $"Band Name: \"{newBand}\"";
         SingleComposer.GetDynamicText("bandName").SetNewText(str, false, false, false);
     byte[] array;
@@ -134,7 +175,17 @@ public class MusicBlockGUI : GuiDialogBlockEntity
       if (num != 0)
                 _instrumentType = instrumentItem.InstrumentType;
     }
-    new SongSelectGUI(capi, _instrumentType, title: "Select MIDI File for Music Block", onFileSelect:  (songPath, songName, trackIndex) => SetSong(songPath, songName, trackIndex)).TryOpen();
+    new SongSelectGUI(
+      capi,
+      _instrumentType,
+      bandChange: band =>
+      {
+        ApplyBandName(band);
+        SeedTextInput("bandNameInput", _bandName);
+      },
+      bandName: _bandName,
+      title: "Select MIDI File for Music Block",
+      onFileSelect: (songPath, songName, trackIndex) => SetSong(songPath, songName, trackIndex)).TryOpen();
     return true;
   }
 
