@@ -12,6 +12,16 @@ public class InstrumentModSettings
   public bool Enabled { get; set; } = true;
   public float PlayerVolume { get; set; } = 0.7f;
   public float BlockVolume { get; set; } = 1f;
+
+  // ceiling on a single MIDI file, in KiB
+  public int MaxMidiFileSizeKiB { get; set; } = 1024;
+
+  public long MaxMidiFileSizeBytes => (long) System.Math.Max(1, MaxMidiFileSizeKiB) * 1024L;
+
+  // ceiling on the events a single played track may contain, counting only the
+  // ones playback acts on. set well above dense hand-written music so only files
+  // that are absurd by construction are refused.
+  public int MaxPlayableEventsPerTrack { get; set; } = 100000;
   public string LocalSongsDirectory { get; set; } = Path.Combine(GamePaths.DataPath, "Songs");
   public string DataSongsDirectory { get; set; } = Path.Combine(GamePaths.DataPath, "SongsData");
 

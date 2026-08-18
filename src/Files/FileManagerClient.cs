@@ -1,4 +1,5 @@
 using VSInstrumentsBase.src.Network.Files;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -42,20 +43,46 @@ public class FileManagerClient : FileManager
 
   protected void OnFileRequested(GetFileRequest request)
   {
+    void Refuse()
+    {
+      this.ClientChannel.SendPacket<GetFileResponse>(new GetFileResponse()
+      {
+        RequestId = request.RequestId,
+        Found = false
+      });
+    }
+
+    if (!FileManager.IsSafeRelativePath(request.File))
+    {
+      Refuse();
+      return;
+    }
+
     FileTree.Node node = this.UserTree.Find(request.File);
     if (node == null)
     {
-      this.ClientAPI.ShowChatMessage("Why are you like this?");
+      Refuse();
+      return;
     }
-    else
+
+    // refuse locally too, so an oversized file gives the player a clear reason
+    // here instead of being sent and silently dropped by the server.
+    long maxBytes = InstrumentModSettings.Instance.MaxMidiFileSizeBytes;
+    long size = new FileInfo(node.FullPath).Length;
+    if (size > maxBytes)
     {
-      GetFileResponse packet = new GetFileResponse()
-      {
-        RequestId = request.RequestId
-      };
-      FileManager.FileToPacket(node, packet);
-      this.ClientChannel.SendPacket<GetFileResponse>(packet);
+      this.ClientAPI.ShowChatMessage($"Instruments: \"{node.Name}\" is {size / 1024L} KiB, over the {maxBytes / 1024L} KiB limit, so it was not sent.");
+      Refuse();
+      return;
     }
+
+    GetFileResponse packet = new GetFileResponse()
+    {
+      RequestId = request.RequestId,
+      Found = true
+    };
+    FileManager.FileToPacket(node, packet);
+    this.ClientChannel.SendPacket<GetFileResponse>(packet);
   }
 
   protected override void SubmitRequest(FileManager.FileRequest request)
@@ -71,9 +98,48 @@ public class FileManagerClient : FileManager
   {
     this.CompleteRequest((FileManager.RequestId) packet.RequestId, (FileManager.CreateFileCallback) (request =>
     {
-      using (FileStream file = this.CreateFile(request.DataPath))
-        FileManager.Decompress(packet.Data, (Stream) file, packet.Compression);
+      // the peer could not supply it. complete with no node so the waiting
+      // caller takes its failure path instead of hanging on the request.
+      if (!packet.Found || packet.Data == null)
+        return null;
+
+      long maxBytes = InstrumentModSettings.Instance.MaxMidiFileSizeBytes;
+      string fullPath = null;
+      try
+      {
+        using (FileStream file = this.CreateFile(request.DataPath))
+        {
+          fullPath = file.Name;
+          if (!FileManager.TryDecompress(packet.Data, (Stream) file, packet.Compression, maxBytes))
+          {
+            file.Dispose();
+            TryDelete(fullPath);
+            return null;
+          }
+        }
+      }
+      catch (Exception)
+      {
+        TryDelete(fullPath);
+        return null;
+      }
+
       return this.DataTree.Find(request.DataPath);
     }));
+  }
+
+  private static void TryDelete(string fullPath)
+  {
+    if (string.IsNullOrEmpty(fullPath))
+      return;
+    try
+    {
+      if (File.Exists(fullPath))
+        File.Delete(fullPath);
+    }
+    catch (Exception)
+    {
+      // the partial file is unusable either way.
+    }
   }
 }

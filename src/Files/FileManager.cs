@@ -49,6 +49,72 @@ public abstract class FileManager
       deflateStream.CopyTo(destination);
   }
 
+  // copies at most maxBytes and reports failure rather than writing the excess.
+  // limit has to be enforced on the output as it is produced, not on the
+  // compressed input or on a size the sender claims.
+  private static bool CopyWithLimit(Stream source, Stream destination, long maxBytes)
+  {
+    byte[] buffer = new byte[81920];
+    long total = 0L;
+    int read;
+    while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+    {
+      total += read;
+      if (total > maxBytes)
+        return false;
+      destination.Write(buffer, 0, read);
+    }
+    return true;
+  }
+
+  // decompresses into destination, aborting if the output would exceed maxBytes. 
+  // returns false if the limit was hit, in which case destination holds a partial
+  // write the caller is expected to discard.
+  public static bool TryDecompress(
+    byte[] source,
+    Stream destination,
+    CompressionMethod compression,
+    long maxBytes)
+  {
+    if (source == null)
+      return false;
+
+    switch (compression)
+    {
+      case CompressionMethod.None:
+        if (source.LongLength > maxBytes)
+          return false;
+        destination.Write(source);
+        return true;
+      case CompressionMethod.Deflate:
+        using (DeflateStream deflateStream = new DeflateStream(new MemoryStream(source), CompressionMode.Decompress, true))
+          return CopyWithLimit(deflateStream, destination, maxBytes);
+      default:
+        return false;
+    }
+  }
+
+  // checks a relative path supplied by a remote peer. anything rooted, drive
+  // qualified, or containing a parent segment is rejected, because those are
+  // the shapes that escape the tree root once combined with it.
+  public static bool IsSafeRelativePath(string path)
+  {
+    if (string.IsNullOrWhiteSpace(path))
+      return false;
+    if (Path.IsPathRooted(path) || Path.IsPathFullyQualified(path))
+      return false;
+    if (path.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+      return false;
+
+    foreach (string segment in path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+    {
+      if (segment == "..")
+        return false;
+    }
+
+    return true;
+  }
+
   public static byte[] Compress(Stream source, CompressionMethod compression)
   {
     switch (compression)
@@ -136,6 +202,11 @@ public abstract class FileManager
     RequestFileCallback callback,
     object context)
   {
+    // the path originates from a remote peer, so it is validated before it is
+    // ever combined with a tree root.
+    if (!IsSafeRelativePath(file))
+      throw new InvalidDataException("Unsafe file path: " + file);
+
     string dataPath = GetDataPath(source, file);
     FileTree.Node file1 = DataTree.Find(dataPath);
     if (file1 != null)
@@ -143,7 +214,7 @@ public abstract class FileManager
       callback(file1, context);
       return  null;
     }
-    if (Path.IsPathFullyQualified(dataPath) || Path.IsPathRooted(dataPath))
+    if (!IsSafeRelativePath(dataPath))
       throw new InvalidDataException();
         RequestId requestId = NextRequestID(source.ClientId);
         FileRequest request = new FileRequest(source, requestId, file, callback, context);

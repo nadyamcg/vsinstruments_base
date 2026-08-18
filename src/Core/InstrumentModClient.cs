@@ -4,6 +4,7 @@ using Vintagestory.API.Common;
 using VSInstrumentsBase.src;
 using VSInstrumentsBase.src.Files;
 using VSInstrumentsBase.src.Network.Packets;
+using VSInstrumentsBase.src.Network.Playback;
 using VSInstrumentsBase.src.Playback;
 using VSInstrumentsBase.src.Types;
 
@@ -17,6 +18,85 @@ public class InstrumentModClient : InstrumentModBase
   private long listenerIDClient = -1;
   private FileManagerClient _fileManager;
   private PlaybackManagerClient _playbackManager;
+  private LoadedTrack _loadedTrack;
+
+  // a track the player has picked but not started yet. holding it here rather
+  // than on the itemstack means swapping hotbar slots drops it, which is the
+  // intended way to back out of a selection.
+  public sealed class LoadedTrack
+  {
+    public string RelativePath { get; init; }
+    public string DisplayName { get; init; }
+    public int TrackIndex { get; init; }
+    // set once the server confirms it holds a usable copy of the file.
+    public bool ServerReady { get; set; }
+  }
+
+  public LoadedTrack CurrentTrack => _loadedTrack;
+
+  // called by the song select dialog. stores the pick and kicks off the server
+  // side transfer so the file is in place before playback is ever requested.
+  public void LoadTrack(string relativePath, string displayName, int trackIndex)
+  {
+    string name = System.IO.Path.GetFileNameWithoutExtension(displayName ?? relativePath ?? "");
+
+    if (IsAlreadyLoaded(relativePath, trackIndex))
+    {
+      _playbackManager?.ShowPlaybackNotification($"Track #{trackIndex:00} of {name} is already loaded.");
+      return;
+    }
+
+    // a different pick replaces the old one outright.
+    _loadedTrack = new LoadedTrack
+    {
+      RelativePath = relativePath,
+      DisplayName = displayName,
+      TrackIndex = trackIndex
+    };
+
+    _playbackManager?.ShowPlaybackNotification($"Loaded track #{trackIndex:00} of {name}. Right-click to play.");
+    _playbackManager?.RequestPreload(relativePath, trackIndex);
+  }
+
+  private bool IsAlreadyLoaded(string relativePath, int trackIndex)
+  {
+    return _loadedTrack != null
+      && _loadedTrack.TrackIndex == trackIndex
+      && string.Equals(_loadedTrack.RelativePath, relativePath, StringComparison.OrdinalIgnoreCase);
+  }
+
+  public void OnTrackPreloadResult(string file, int channel, bool ready, DenyPlaybackReason reason)
+  {
+    // a stale reply for a track that has since been swapped out or dropped.
+    if (_loadedTrack == null || _loadedTrack.RelativePath != file || _loadedTrack.TrackIndex != channel)
+      return;
+
+    if (ready)
+    {
+      _loadedTrack.ServerReady = true;
+      return;
+    }
+
+    if (reason == DenyPlaybackReason.TooManyRequests)
+    {
+      _playbackManager?.ShowPlaybackNotification("Track loaded, but the server is still busy with a previous request. It will be sent when you play.");
+      return;
+    }
+
+    // the file will not play, so do not leave the player holding a dud.
+    _loadedTrack = null;
+    _playbackManager?.ShowPlaybackErrorMessage($"Could not load track: {reason.GetText()}");
+  }
+
+  // returns true if a track was actually cleared, so callers can decide whether
+  // the unload is worth telling the player about.
+  public bool ClearLoadedTrack()
+  {
+    if (_loadedTrack == null)
+      return false;
+    _loadedTrack = null;
+    return true;
+  }
 
   public override bool ShouldLoad(EnumAppSide side)
   {
@@ -87,6 +167,10 @@ public class InstrumentModClient : InstrumentModBase
     IClientPlayer player = clientApi?.World?.Player;
     if (player == null || _playbackManager == null)
       return;
+
+    // leaving the slot also drops any track waiting to be played
+    if (ClearLoadedTrack())
+      _playbackManager.ShowPlaybackNotification("Unloaded track.");
 
     if (!_playbackManager.IsPlaying(player.ClientId))
       return;

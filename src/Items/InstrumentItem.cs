@@ -1,3 +1,4 @@
+using VSInstrumentsBase.src.Blocks;
 using VSInstrumentsBase.src.GUI;
 using VSInstrumentsBase.src.Types;
 using VSInstrumentsBase.src.Core;
@@ -69,6 +70,15 @@ public class InstrumentItem : Item
       return;
     if (byEntity.Controls.Sneak)
     {
+      // sneak-click reopens the picker without disturbing a loaded track.
+      // music blocks are left alone.
+      if (this.api is ICoreClientAPI sneakCapi && !IsMusicBlock(blockSel))
+      {
+        handling = EnumHandHandling.PreventDefault;
+        this.OpenSongSelect(sneakCapi);
+        return;
+      }
+
       base.OnHeldInteractStart(slot, byEntity, blockSel, entitySel, firstEvent, ref handling);
     }
     else
@@ -76,30 +86,55 @@ public class InstrumentItem : Item
       handling = EnumHandHandling.PreventDefault;
       if (this.api is ICoreClientAPI capi)
       {
+        var mod = capi.ModLoader.GetModSystem<InstrumentModClient>();
+
         if (byEntity.Attributes.GetBool("isPlayingInstrument"))
         {
-          var pm = capi.ModLoader.GetModSystem<InstrumentModClient>()?.PlaybackManager as PlaybackManagerClient;
-          pm?.RequestStopPlayback();
+          (mod?.PlaybackManager as PlaybackManagerClient)?.RequestStopPlayback();
           return;
         }
 
-        try
+        // a loaded track takes priority over reopening the picker.
+        // switching hotbar slots clears it.
+        InstrumentModClient.LoadedTrack loaded = mod?.CurrentTrack;
+        if (loaded != null)
         {
-          // the band name is remembered client-side and re-seeded on every open
-          var gui = new SongSelectGUI(
-            capi,
+          (mod.PlaybackManager as PlaybackManagerClient)?.RequestStartPlayback(
+            loaded.RelativePath,
+            loaded.TrackIndex,
             this.InstrumentType,
-            bandChange: band => Definitions.Instance.SetBandName(band),
-            bandName: Definitions.Instance.GetBandName(),
-            title: "Select MIDI File - " + (this.InstrumentType?.Name ?? "Instrument"));
-          gui.TryOpen();
+            Definitions.Instance.GetBandName());
+          return;
         }
-        catch (Exception ex)
-        {
-          capi.Logger.Error("[InstrumentItem] Exception while opening GUI: " + ex.Message);
-        }
+
+        this.OpenSongSelect(capi);
       }
     }
+  }
+
+  private void OpenSongSelect(ICoreClientAPI capi)
+  {
+    try
+    {
+      var gui = new SongSelectGUI(
+        capi,
+        this.InstrumentType,
+        bandChange: band => Definitions.Instance.SetBandName(band),
+        bandName: Definitions.Instance.GetBandName(),
+        title: "Select MIDI File - " + (this.InstrumentType?.Name ?? "Instrument"));
+      gui.TryOpen();
+    }
+    catch (Exception ex)
+    {
+      capi.Logger.Error("[InstrumentItem] Exception while opening GUI: " + ex.Message);
+    }
+  }
+
+  private bool IsMusicBlock(BlockSelection blockSel)
+  {
+    if (blockSel?.Position == null)
+      return false;
+    return this.api?.World?.BlockAccessor?.GetBlock(blockSel.Position) is MusicBlock;
   }
 
   private void Startup() => this.capi = this.api as ICoreClientAPI;

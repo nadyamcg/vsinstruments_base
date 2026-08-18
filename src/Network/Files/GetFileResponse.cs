@@ -9,6 +9,10 @@ namespace VSInstrumentsBase.src.Network.Files
 		//     the unique identifier of this request.
 		public ulong RequestId;
 
+		//     false when the peer could not supply the file. missing, too large,
+		//     or refused. Data is meaningless in that case.
+		public bool Found;
+
 		//     uncompressed (original) size.
 		public int Size;
 

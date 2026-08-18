@@ -3,6 +3,7 @@ using VSInstrumentsBase.src.Network.Playback;
 using VSInstrumentsBase.src.Players;
 using VSInstrumentsBase.src.Types;
 using VSInstrumentsBase.src.Utils;
+using VSInstrumentsBase.src.Core;
 using Melanchall.DryWetMidi.Core;
 using System;
 using System.Diagnostics;
@@ -36,10 +37,13 @@ public class PlaybackManagerClient : PlaybackManager
       .RegisterMessageType<StartPlaybackDenyOwner>()
       .RegisterMessageType<StopPlaybackRequest>()
       .RegisterMessageType<StopPlaybackBroadcast>()
+      .RegisterMessageType<PreloadPlaybackRequest>()
+      .RegisterMessageType<PreloadPlaybackResponse>()
       .SetMessageHandler<StartPlaybackBroadcast>(OnStartPlaybackBroadcast)
       .SetMessageHandler<StartPlaybackOwner>(OnStartPlaybackOwner)
       .SetMessageHandler<StartPlaybackDenyOwner>(OnStartPlaybackDenyOwner)
-      .SetMessageHandler<StopPlaybackBroadcast>(OnStopPlaybackBroadcast);
+      .SetMessageHandler<StopPlaybackBroadcast>(OnStopPlaybackBroadcast)
+      .SetMessageHandler<PreloadPlaybackResponse>(OnPreloadPlaybackResponse);
     this.ClientFileManager = fileManager;
     this.ClientAPI.Event.PlayerJoin += player =>
     {
@@ -104,6 +108,23 @@ public class PlaybackManagerClient : PlaybackManager
   public void RequestStopPlayback()
   {
     this.ClientChannel.SendPacket(new StopPlaybackRequest());
+  }
+
+  // asks the server to fetch and validate a file ahead of time. called when a
+  // track is loaded so the transfer happens during the pause before the player
+  // starts, rather than in the middle of pressing play.
+  public void RequestPreload(string file, int channel)
+  {
+    this.ClientChannel.SendPacket(new PreloadPlaybackRequest()
+    {
+      File = file,
+      Channel = channel
+    });
+  }
+
+  protected void OnPreloadPlaybackResponse(PreloadPlaybackResponse packet)
+  {
+    this.ClientAPI.GetInstrumentMod()?.OnTrackPreloadResult(packet.File, packet.Channel, packet.Ready, packet.Reason);
   }
 
   // resolves the playback state for a given slot id, lazy-creating a block-slot if needed.
@@ -222,12 +243,12 @@ public class PlaybackManagerClient : PlaybackManager
     }
   }
 
-  protected void ShowPlaybackErrorMessage(string reason)
+  public void ShowPlaybackErrorMessage(string reason)
   {
     this.ClientAPI.ShowChatMessage("Instruments playback failed: " + reason);
   }
 
-  protected void ShowPlaybackNotification(string message)
+  public void ShowPlaybackNotification(string message)
   {
     this.ClientAPI.ShowChatMessage("Instruments: " + message);
   }

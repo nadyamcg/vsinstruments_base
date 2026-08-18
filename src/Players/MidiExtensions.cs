@@ -2,6 +2,7 @@ using Melanchall.DryWetMidi.Core;
 using Melanchall.DryWetMidi.Interaction;
 using System;
 using System.Linq;
+using VSInstrumentsBase.src;
 
 
 namespace VSInstrumentsBase.src.Players;
@@ -42,6 +43,46 @@ public static class MidiExtensions
   {
     TrackChunk[] array = [.. Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi)];
     return trackIndex >= array.Length ? 0 : NotesManagingUtilities.GetNotes(array[trackIndex], (NoteDetectionSettings) null, (TimedEventDetectionSettings) null).Count<Note>();
+  }
+
+  // true if playback would actually do something with this event.
+  public static bool IsPlayableEvent(MidiEvent midiEvent)
+  {
+    switch (midiEvent)
+    {
+      case NoteOnEvent:
+      case NoteOffEvent:
+      case PitchBendEvent:
+        return true;
+      case ControlChangeEvent cc:
+        byte number = (byte) cc.ControlNumber;
+        return number == Constants.Midi.CC_Modulation
+          || number == Constants.Midi.CC_DataEntry
+          || number == Constants.Midi.CC_ChannelVolume
+          || number == Constants.Midi.CC_Expression
+          || number == Constants.Midi.CC_Sustain
+          || number == Constants.Midi.CC_RpnLsb
+          || number == Constants.Midi.CC_RpnMsb;
+      default:
+        return false;
+    }
+  }
+
+  // counts the events playback would act on in a single track. only the track
+  // that will be played is measured.
+  public static int CountPlayableEvents(this MidiFile midi, int trackIndex)
+  {
+    TrackChunk[] array = [.. Melanchall.DryWetMidi.Core.TrackChunkUtilities.GetTrackChunks(midi)];
+    if (trackIndex < 0 || trackIndex >= array.Length)
+      return 0;
+
+    int count = 0;
+    foreach (MidiEvent midiEvent in array[trackIndex].Events)
+    {
+      if (IsPlayableEvent(midiEvent))
+        ++count;
+    }
+    return count;
   }
 
   public static double ReadMaxTrackDuration(this MidiFile midi)

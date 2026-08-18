@@ -494,10 +494,13 @@ public class SongSelectGUI : GuiDialog
           this.TryClose();
         })));
       else
-        components.Add((RichTextComponentBase) new LinkTextComponent(this.capi, "Play", rightFont, (Action<LinkTextComponent>) (txc =>
+        // loading arms the track instead of starting it. the player triggers
+        // playback themselves with right-click.
+        components.Add((RichTextComponentBase) new LinkTextComponent(this.capi, "Load", rightFont, (Action<LinkTextComponent>) (txc =>
         {
-          ((ICoreAPI) this.capi).Logger.Notification($"[SongSelectGUI] Play button clicked: {node.Name}, track {trackIndex}, instrument {this._instrumentType?.Name ?? "unknown"}, band={this._bandName}");
-          ((PlaybackManagerClient)this.capi.GetInstrumentMod().PlaybackManager).RequestStartPlayback(node.RelativePath, trackIndex, this._instrumentType, this._bandName);
+          this.capi.Gui.PlaySound("menubutton_press", false, 1f);
+          ((ICoreAPI) this.capi).Logger.Notification($"[SongSelectGUI] Load button clicked: {node.Name}, track {trackIndex}, instrument {this._instrumentType?.Name ?? "unknown"}, band={this._bandName}");
+          this.capi.GetInstrumentMod()?.LoadTrack(node.RelativePath, node.Name, trackIndex);
           this.TryClose();
         })));
       components.Add((RichTextComponentBase) new RichTextComponent(this.capi, Environment.NewLine, leftFont));

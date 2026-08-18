@@ -21,6 +21,11 @@
 		// Summary:
 		//     Request was denied because there is an ongoing operation already.
 		OperationInProgress,
+		//
+		// Summary:
+		//     Request was denied because the track holds more playable events than
+		//     the server allows.
+		FileTooComplex,
 	}
 
 	//
@@ -76,6 +81,8 @@
 					return "Too many requests.";
 				case DenyPlaybackReason.OperationInProgress:
 					return "An operation is already in progress.";
+				case DenyPlaybackReason.FileTooComplex:
+					return "That track has too many playable events.";
 			}
 
 			return "Unspecified reason.";
