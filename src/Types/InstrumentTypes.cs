@@ -24,7 +24,16 @@ public static class InstrumentTypes
     InstrumentType.Register(api, typeof (InstrumentTypes.MBoxComb), (InstrumentType) new InstrumentTypes.MBoxComb());
     InstrumentType.Register(api, typeof (InstrumentTypes.VBow), (InstrumentType) new InstrumentTypes.VBow());
     InstrumentType.Register(api, typeof (InstrumentTypes.MusicBlockCone), (InstrumentType) new InstrumentTypes.MusicBlockCone());
-    api.Logger.Notification("[InstrumentTypes] Registered 16 instrument types by name");
+    // instruments previously contributed by the sf2packs. moved into base so the
+    // items always exist regardless of which sound pack (if any) is installed;
+    // sf2packs now only override the audio samples.
+    InstrumentType.Register(api, typeof (InstrumentTypes.Flute), (InstrumentType) new InstrumentTypes.Flute());
+    InstrumentType.Register(api, typeof (InstrumentTypes.Marimba), (InstrumentType) new InstrumentTypes.Marimba());
+    InstrumentType.Register(api, typeof (InstrumentTypes.Cello), (InstrumentType) new InstrumentTypes.Cello());
+    InstrumentType.Register(api, typeof (InstrumentTypes.Trombone), (InstrumentType) new InstrumentTypes.Trombone());
+    InstrumentType.Register(api, typeof (InstrumentTypes.Banjo), (InstrumentType) new InstrumentTypes.Banjo());
+    InstrumentType.Register(api, typeof (InstrumentTypes.Oboe), (InstrumentType) new InstrumentTypes.Oboe());
+    api.Logger.Notification("[InstrumentTypes] Registered 22 instrument types by name");
     InstrumentType instrumentType = InstrumentType.Find("grandpiano");
     if (instrumentType != null)
       api.Logger.Notification($"[InstrumentTypes] Verification SUCCESS: Found 'grandpiano' -> {instrumentType.Name} (ID: {instrumentType.ID})");
@@ -162,5 +171,35 @@ public static class InstrumentTypes
       : base("musicblockcone", "holdbothhandslarge")
     {
     }
+  }
+
+  public class Flute : InstrumentType
+  {
+    public Flute() : base("flute", "holdbothhandslarge") { }
+  }
+
+  public class Marimba : InstrumentType
+  {
+    public Marimba() : base("marimba", "holdbothhandslarge") { }
+  }
+
+  public class Cello : InstrumentType
+  {
+    public Cello() : base("cello", "holdbothhandslarge") { }
+  }
+
+  public class Trombone : InstrumentType
+  {
+    public Trombone() : base("trombone", "holdbothhandslarge") { }
+  }
+
+  public class Banjo : InstrumentType
+  {
+    public Banjo() : base("banjo", "holdbothhandslarge") { }
+  }
+
+  public class Oboe : InstrumentType
+  {
+    public Oboe() : base("oboe", "holdbothhandslarge") { }
   }
 }

@@ -31,9 +31,20 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
 
   private TempoMap _tempoMap;
 
+  private TimedEvent[] _events;
+
   private int _channel;
 
   private bool _isPaused;
+
+  // wall-clock anchor for playback time. _elapsedTime is derived as
+  // _seekOffsetSec + (now - _anchorMs)/1000 so multiple players stay locked
+  // to a shared monotonic clock instead of accumulating float deltaTime.
+  private long _anchorMs;
+
+  private double _seekOffsetSec;
+
+  private long _pausedAtMs;
 
   protected ICoreAPI CoreAPI { get; private set; } = api;
 
@@ -57,12 +68,16 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
 
   private long TimeToTicks(double seconds)
   {
-    return MidiExtensions.TimeToTicks(seconds, this._beatsPerMinute, this._ticksPerQuarterNote);
+    // use the tempo map (not a single fixed BPM) so tempo events and
+    // fractional BPMs in the source MIDI are honoured. matches the time-base
+    // used by the server in MidiExtensions.ReadTrackDuration.
+    long us = (long) Math.Round(seconds * 1_000_000.0);
+    return TimeConverter.ConvertFrom(new MetricTimeSpan(us), this._tempoMap);
   }
 
   private double TicksToTime(long ticks)
   {
-    return MidiExtensions.TicksToTime(ticks, this._beatsPerMinute, this._ticksPerQuarterNote);
+    return TimeConverter.ConvertTo<MetricTimeSpan>(ticks, this._tempoMap).TotalSeconds;
   }
 
   public void Play(MidiFile midi, int channel)
@@ -85,12 +100,20 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     this._beatsPerMinute = midi.ReadBPM();
     this._ticksPerQuarterNote = midi.TimeDivision is TicksPerQuarterNoteTimeDivision timeDivision ? (int) timeDivision.TicksPerQuarterNote : 480;
 
+    // cache the timed-event array once. previously this was rebuilt every
+    // Update tick which allocated per frame and caused GC hitches on long
+    // tracks, which in turn manifested as audible timing jitter on drums.
+    this._events = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray();
+
     this._elapsedTime = 0.0;
     this._ticksDuration = (int) MidiPlayerBase.GetDuration(this._midiTrack);
     this._duration = this.TicksToTime((long) this._ticksDuration);
 
     this._channel = channel;
     this._eventIndex = 0;
+    this._seekOffsetSec = 0.0;
+    this._anchorMs = ((IWorldAccessor) this.CoreAPI.World).ElapsedMilliseconds;
+    this._pausedAtMs = 0L;
   }
 
   public void Play(string midiFilePath, int channel)
@@ -104,12 +127,18 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     if (!this.IsPlaying)
       throw new InvalidOperationException("Cannot pause, player is not playing!");
     this._isPaused = true;
+    this._pausedAtMs = ((IWorldAccessor) this.CoreAPI.World).ElapsedMilliseconds;
   }
 
   public void Resume()
   {
     if (!this._isPaused)
       throw new InvalidOperationException("Cannot resume, player is not paused!");
+    // shift the anchor forward by the paused duration so derived elapsed time
+    // continues from where it was, not from a phantom moment in the past.
+    long now = ((IWorldAccessor) this.CoreAPI.World).ElapsedMilliseconds;
+    this._anchorMs += (now - this._pausedAtMs);
+    this._pausedAtMs = 0L;
     this._isPaused = false;
   }
 
@@ -121,7 +150,12 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     if (this._isPaused)
       return;
 
-    this._elapsedTime += (double) deltaTime;
+    // derive elapsed time from the world clock anchor instead of accumulating
+    // deltaTime. this keeps multiple players (whether multiple band blocks on
+    // one client, or instances across clients) locked to a shared monotonic
+    // time-base and eliminates per-instance float drift.
+    long nowMs = ((IWorldAccessor) this.CoreAPI.World).ElapsedMilliseconds;
+    this._elapsedTime = this._seekOffsetSec + (double) (nowMs - this._anchorMs) / 1000.0;
     long elapsedTicks = this.TimeToTicks(this._elapsedTime);
 
     // clamp to bounds, playback is complete.
@@ -129,7 +163,7 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
       this._elapsedTime = this._duration;
 
     // process all MIDI events that should occur at this time
-    TimedEvent[] array = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray<TimedEvent>();
+    TimedEvent[] array = this._events;
     for (; this._eventIndex < array.Length; ++this._eventIndex)
     {
       TimedEvent timedEvent = array[this._eventIndex];
@@ -190,7 +224,7 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     if (timeInTicks > durationInTicks)
       throw new ArgumentOutOfRangeException("Player cannot seek beyond its end!");
 
-    TimedEvent[] array = TimedEventsManagingUtilities.GetTimedEvents(this._midiTrack, (TimedEventDetectionSettings) null).ToArray<TimedEvent>();
+    TimedEvent[] array = this._events;
 
     // default past end in case seek target is beyond all events
     this._eventIndex = array.Length;
@@ -207,7 +241,12 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
       this.ProcessExpressionEvent(array[index].Event);
     }
 
+    // re-anchor the wall-clock baseline so derived elapsed time picks up from
+    // the seek target. without this, the next Update would snap right back.
     this._elapsedTime = this.TicksToTime(timeInTicks);
+    this._seekOffsetSec = this._elapsedTime;
+    this._anchorMs = ((IWorldAccessor) this.CoreAPI.World).ElapsedMilliseconds;
+    this._pausedAtMs = 0L;
   }
 
   public bool TrySeek(double time)
@@ -227,6 +266,7 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
 
     this._midiTrack = (TrackChunk) null;
     this._tempoMap = (TempoMap) null;
+    this._events = null;
     this._beatsPerMinute = 120;
     this._ticksPerQuarterNote = 0;
     this._elapsedTime = 0.0;
@@ -234,6 +274,9 @@ public abstract class MidiPlayerBase(ICoreAPI api, InstrumentType instrumentType
     this._duration = 0.0;
     this._eventIndex = 0;
     this._channel = 0;
+    this._seekOffsetSec = 0.0;
+    this._anchorMs = 0L;
+    this._pausedAtMs = 0L;
 
     this.OnStop();
   }
